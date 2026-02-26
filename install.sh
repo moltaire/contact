@@ -10,9 +10,8 @@
 #   2. Asks which vision model to use and pulls it if not already present.
 #   3. Optionally asks for a separate text model for the synthesis step.
 #   4. Asks where your screenshot inbox and archive folders are.
-#   5. Asks for a schedule (daily or weekly).
-#   6. Generates and installs a macOS LaunchAgent that runs the sorter
-#      automatically on that schedule.
+#   5. Optionally sets up a macOS LaunchAgent on a daily or weekly schedule.
+#   6. Optionally runs the sorter immediately.
 # ──────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -208,18 +207,23 @@ fi
 
 separator
 
-# ── 7. Schedule ───────────────────────────────────────────────────────────────
+# ── 7. Scheduling (optional) ──────────────────────────────────────────────────
 
-echo "How often should the sorter run?"
-echo "  1) Daily"
-echo "  2) Weekly (every Monday)"
-read -r -p "  Choice [1]: " SCHED_CHOICE
-SCHED_CHOICE="${SCHED_CHOICE:-1}"
+SETUP_LAUNCHAGENT=false
+if confirm "Set up automatic scheduling via a LaunchAgent?"; then
+    SETUP_LAUNCHAGENT=true
 
-HOUR=$(ask "  Run at hour (0–23, 24h)" "9")
+    echo
+    echo "How often should the sorter run?"
+    echo "  1) Daily"
+    echo "  2) Weekly (every Monday)"
+    read -r -p "  Choice [1]: " SCHED_CHOICE
+    SCHED_CHOICE="${SCHED_CHOICE:-1}"
 
-if [[ "$SCHED_CHOICE" == "2" ]]; then
-    SCHEDULE_XML="    <key>StartCalendarInterval</key>
+    HOUR=$(ask "  Run at hour (0–23, 24h)" "9")
+
+    if [[ "$SCHED_CHOICE" == "2" ]]; then
+        SCHEDULE_XML="    <key>StartCalendarInterval</key>
     <dict>
         <key>Weekday</key>
         <integer>1</integer>
@@ -228,43 +232,38 @@ if [[ "$SCHED_CHOICE" == "2" ]]; then
         <key>Minute</key>
         <integer>0</integer>
     </dict>"
-    SCHEDULE_DESC="every Monday at ${HOUR}:00"
-else
-    SCHEDULE_XML="    <key>StartCalendarInterval</key>
+        SCHEDULE_DESC="every Monday at ${HOUR}:00"
+    else
+        SCHEDULE_XML="    <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
         <integer>$HOUR</integer>
         <key>Minute</key>
         <integer>0</integer>
     </dict>"
-    SCHEDULE_DESC="daily at ${HOUR}:00"
-fi
+        SCHEDULE_DESC="daily at ${HOUR}:00"
+    fi
 
-separator
+    LOG_FILE="$ARCHIVE/sorter.log"
+    mkdir -p "$HOME/Library/LaunchAgents"
 
-# ── 8. Generate and install the LaunchAgent plist ─────────────────────────────
-
-LOG_FILE="$ARCHIVE/sorter.log"
-
-mkdir -p "$HOME/Library/LaunchAgents"
-
-# Build optional argument lines for the plist
-PLIST_EXTRA_ARGS=""
-if [[ -n "$TEXT_MODEL" ]]; then
-    PLIST_EXTRA_ARGS="$PLIST_EXTRA_ARGS
+    # Build optional argument lines for the plist
+    PLIST_EXTRA_ARGS=""
+    if [[ -n "$TEXT_MODEL" ]]; then
+        PLIST_EXTRA_ARGS="$PLIST_EXTRA_ARGS
         <string>--text-model</string>
         <string>$TEXT_MODEL</string>"
-fi
-if ! $OCR_ENABLED; then
-    PLIST_EXTRA_ARGS="$PLIST_EXTRA_ARGS
+    fi
+    if ! $OCR_ENABLED; then
+        PLIST_EXTRA_ARGS="$PLIST_EXTRA_ARGS
         <string>--no-ocr</string>"
-fi
-if $KEEP_ORIGINALS; then
-    PLIST_EXTRA_ARGS="$PLIST_EXTRA_ARGS
+    fi
+    if $KEEP_ORIGINALS; then
+        PLIST_EXTRA_ARGS="$PLIST_EXTRA_ARGS
         <string>--keep-originals</string>"
-fi
+    fi
 
-cat > "$PLIST_DST" <<EOF
+    cat > "$PLIST_DST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -300,17 +299,18 @@ $SCHEDULE_XML
 </plist>
 EOF
 
-# Reload (unload first in case it was already installed)
-launchctl unload "$PLIST_DST" 2>/dev/null || true
-launchctl load "$PLIST_DST"
+    # Reload (unload first in case it was already installed)
+    launchctl unload "$PLIST_DST" 2>/dev/null || true
+    launchctl load "$PLIST_DST"
 
-echo "✓ LaunchAgent installed  →  $PLIST_DST"
-echo "  Schedule: $SCHEDULE_DESC"
-echo "  Log:      $LOG_FILE"
+    echo "✓ LaunchAgent installed  →  $PLIST_DST"
+    echo "  Schedule: $SCHEDULE_DESC"
+    echo "  Log:      $LOG_FILE"
+fi
 
 separator
 
-# ── 9. macOS screenshot save location reminder ────────────────────────────────
+# ── 8. macOS screenshot save location reminder ────────────────────────────────
 
 echo "One manual step: point macOS screenshots to your inbox."
 echo
@@ -321,11 +321,10 @@ echo
 
 separator
 
-# ── 10. Summary and manual command ────────────────────────────────────────────
+# ── 9. Summary and run prompt ─────────────────────────────────────────────────
 
-echo "Done! To run the sorter manually at any time:"
-echo
-MANUAL_CMD="  python3 \"$SCRIPT_PATH\" \\
+# Build the command string (used for display and for running now)
+MANUAL_CMD="python3 \"$SCRIPT_PATH\" \\
     --inbox \"$INBOX\" \\
     --archive  \"$ARCHIVE\" \\
     --model    \"$MODEL\""
@@ -341,7 +340,16 @@ if $KEEP_ORIGINALS; then
     MANUAL_CMD="$MANUAL_CMD \\
     --keep-originals"
 fi
-echo "$MANUAL_CMD"
+
+echo "Done! To run the sorter manually at any time:"
+echo
+echo "  $MANUAL_CMD"
 echo
 echo "Add --dry-run --verbose to preview renames and inspect each pipeline stage."
+echo
+
+if confirm "Run the sorter now?"; then
+    echo
+    eval "$MANUAL_CMD"
+fi
 echo

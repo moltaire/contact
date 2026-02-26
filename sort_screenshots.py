@@ -26,6 +26,7 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -78,10 +79,11 @@ SYNTHESIS_PROMPT_TMPL = """\
 Create a 3-5 word hyphenated filename slug for a screenshot.
 
 Visual description: {visual}
-Text found in image (OCR): {ocr}
+OCR (often unreliable — ignore if garbled): {ocr}
 
 Rules:
-- Use specific content from titles, labels, or key terms when available
+- Base the slug primarily on the visual description
+- Use specific titles, labels, or key terms when available
 - Never use generic words like "screenshot", "image", "figure", or "file"
 - Output only the slug, nothing else
 
@@ -98,6 +100,35 @@ FALLBACK_SYSTEM = (
 )
 
 FALLBACK_PROMPT = "3-5 word slug for this image. Only output the slug. Slug:"
+
+
+# ── Image helpers ─────────────────────────────────────────────────────────────
+
+
+def _load_image_b64(path: Path, max_pixels: int = 1500) -> str:
+    """
+    Return a base64-encoded image, downscaled to max_pixels on the longest side.
+    Uses macOS `sips` (always available) so we avoid adding PIL as a dependency.
+    Downscaling dramatically reduces vision-model inference time for large/retina
+    screenshots without meaningfully affecting accuracy.
+    """
+    try:
+        with tempfile.NamedTemporaryFile(suffix=path.suffix, delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+        result = subprocess.run(
+            ["sips", "-Z", str(max_pixels), str(path), "--out", str(tmp_path)],
+            capture_output=True,
+            timeout=15,
+        )
+        if result.returncode == 0 and tmp_path.stat().st_size > 0:
+            data = tmp_path.read_bytes()
+            tmp_path.unlink(missing_ok=True)
+            return base64.b64encode(data).decode()
+        tmp_path.unlink(missing_ok=True)
+    except Exception:
+        pass
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
 
 # ── Ollama API calls ──────────────────────────────────────────────────────────
@@ -118,7 +149,7 @@ def _call_vision(b64: str, model: str, prompt: str, system: str) -> str:
         data=payload,
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=300) as resp:
         return json.loads(resp.read())["response"].strip()
 
 
@@ -230,11 +261,13 @@ def describe_image(
     verbose: bool,
 ) -> str:
     """Three-stage pipeline: vision description + OCR → text LLM → slug."""
-    with open(path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
+    b64 = _load_image_b64(path)
 
     # Stage 1: vision description
-    visual_desc = _call_vision(b64, vision_model, VISION_PROMPT, VISION_SYSTEM)
+    try:
+        visual_desc = _call_vision(b64, vision_model, VISION_PROMPT, VISION_SYSTEM)
+    except Exception as e:
+        raise RuntimeError(f"vision stage failed: {e}") from e
     if verbose:
         print(f"    [vision] {visual_desc}")
 
@@ -254,7 +287,10 @@ def describe_image(
         visual=visual_desc or "(no description)",
         ocr=ocr_text or "(none)",
     )
-    raw_slug = _call_text(text_model, synthesis_prompt, SYNTHESIS_SYSTEM)
+    try:
+        raw_slug = _call_text(text_model, synthesis_prompt, SYNTHESIS_SYSTEM)
+    except Exception as e:
+        raise RuntimeError(f"synthesis stage failed: {e}") from e
     slug = _to_slug(raw_slug)
     if verbose:
         print(f"    [slug]   {slug}")
