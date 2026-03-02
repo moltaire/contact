@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import streamlit as st
+import streamlit.components.v1 as _components
 from PIL import Image, ImageOps
 
 from processor.html import write_roll_html
@@ -36,7 +37,12 @@ from processor.roll import (
 from processor.sidecar import _read_xmp_meta, write_xmp
 from processor.tagger import VALID_CATEGORIES, analyze_image, write_roll_summary
 
-st.set_page_config(page_title="contact", layout="wide")
+_roll_label = (st.session_state.get("roll") or {}).get("label", "").strip()
+st.set_page_config(
+    page_title=f"contact · {_roll_label}" if _roll_label else "contact",
+    page_icon="🎞️",
+    layout="wide",
+)
 
 _VISION_KEYWORDS = {"vision", "llava", "minicpm", "bakllava", "moondream", "cogvlm"}
 
@@ -48,29 +54,58 @@ _CSS = """
     top: 0.4rem !important; right: 0.4rem !important;
     left: auto !important; bottom: auto !important;
 }
+/* Make tertiary buttons look like muted inline text */
+[data-testid="baseButton-tertiary"] {
+    color: rgba(128,128,128,0.85) !important;
+    font-size: 0.8rem !important;
+    padding: 0 2px !important;
+    min-height: 0 !important;
+}
 </style>
 """
 
-_STEPS = [
-    (1, "Select Folder"),
-    (2, "Roll Info"),
-    (3, "Frame Analysis"),
-    (4, "Review & Edit"),
-    (5, "Contact Sheet"),
+_TAB_NAMES = [
+    "Select Folder",
+    "Roll Info",
+    "Frame Analysis",
+    "Review & Edit",
 ]
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
+@st.cache_data(ttl=300)
 def _get_ollama_models() -> list[str]:
     try:
-        r = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(
+            ["ollama", "list"], capture_output=True, text=True, timeout=5
+        )
         if r.returncode != 0:
             return []
         lines = r.stdout.strip().split("\n")
         return [line.split()[0] for line in lines[1:] if line.split()]
     except Exception:
         return []
+
+
+def _switch_tab(index: int):
+    """Switch the active tab by index via JS. Call after all tab content is rendered."""
+    _components.html(
+        f"""<script>
+        (function() {{
+            function go() {{
+                var tabs = window.parent.document.querySelectorAll(
+                    'button[data-baseweb="tab"], .stTabs button[role="tab"]'
+                );
+                if (tabs.length > {index}) {{ tabs[{index}].click(); return; }}
+                setTimeout(go, 200);
+            }}
+            go();
+        }})();
+        </script>""",
+        height=0,
+    )
 
 
 def _is_vision_model(name: str) -> bool:
@@ -94,27 +129,84 @@ def _dedup(items: list) -> list:
     return out
 
 
+def _step_desc(text: str, mt: str = "1.2rem"):
+    """Step description with consistent vertical rhythm."""
+    st.markdown(
+        f"<p style='color:rgba(128,128,128,0.85); font-size:0.875rem; "
+        f"margin:{mt} 0 0.25rem 0'>{text}</p>",
+        unsafe_allow_html=True,
+    )
+
+
+def _page_header(
+    desc: str, btn_label: str, btn_disabled: bool = False, help: str | None = None
+) -> bool:
+    """Description left + primary button right (1/4 width). Returns True if clicked."""
+    desc_col, btn_col = st.columns([3, 1])
+    with desc_col:
+        _step_desc(desc, mt="0.5rem")
+    with btn_col:
+        clicked = st.button(
+            btn_label,
+            type="primary",
+            use_container_width=True,
+            disabled=btn_disabled,
+            help=help,
+        )
+    return clicked
+
+
+def _render_title():
+    folder = st.session_state.get("folder")
+    roll = st.session_state.get("roll", {})
+    label = (roll.get("label", "") if roll else "").strip()
+    if folder is None:
+        st.markdown("# contact")
+        return
+    home = Path.home()
+    try:
+        display_path = "~/" + str(folder.relative_to(home))
+    except ValueError:
+        display_path = str(folder)
+    subtitle = label if label else display_path
+    st.markdown(
+        f"<h1 style='margin-bottom:0'>contact "
+        f"<span style='color:#888; font-weight:400'>· {subtitle}</span>"
+        f"</h1>",
+        unsafe_allow_html=True,
+    )
+
+
 def _pick_folder_dialog() -> str:
     """Open a native folder picker. Returns path string or empty string."""
     import platform
+
     try:
         if platform.system() == "Darwin":
-            # osascript is the reliable choice on macOS — no threading issues
             r = subprocess.run(
-                ["osascript", "-e",
-                 'POSIX path of (choose folder with prompt "Select roll folder")'],
-                capture_output=True, text=True, timeout=60,
+                [
+                    "osascript",
+                    "-e",
+                    'POSIX path of (choose folder with prompt "Select roll folder")',
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             return r.stdout.strip() if r.returncode == 0 else ""
         else:
-            # On Linux/Windows run tkinter in a subprocess to avoid main-thread issues
             r = subprocess.run(
-                [sys.executable, "-c",
-                 "import tkinter; from tkinter import filedialog; "
-                 "root = tkinter.Tk(); root.withdraw(); "
-                 "root.wm_attributes('-topmost', True); "
-                 "print(filedialog.askdirectory(), end=''); root.destroy()"],
-                capture_output=True, text=True, timeout=60,
+                [
+                    sys.executable,
+                    "-c",
+                    "import tkinter; from tkinter import filedialog; "
+                    "root = tkinter.Tk(); root.withdraw(); "
+                    "root.wm_attributes('-topmost', True); "
+                    "print(filedialog.askdirectory(), end=''); root.destroy()",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             return r.stdout.strip() if r.returncode == 0 else ""
     except Exception:
@@ -123,7 +215,6 @@ def _pick_folder_dialog() -> str:
 
 def _init_state():
     defaults: dict = {
-        "step": 1,
         "folder": None,
         "roll": {},
         "images": [],
@@ -131,7 +222,7 @@ def _init_state():
         "text_model": "llama3.2-vision:11b",
         "folder_input_initialized": False,
         "review_idx": 0,
-        "browser_opened_for": None,
+        "next_tab": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -144,19 +235,30 @@ def _cli_folder() -> str:
         if arg == "--folder" and i + 1 < len(argv):
             return argv[i + 1]
         if arg.startswith("--folder="):
-            return arg[len("--folder="):]
+            return arg[len("--folder=") :]
     return ""
 
 
 def _clear_folder_state():
     for key in [
-        "film_sel", "cam_sel", "lab_sel",
-        "ms_lens", "ms_location", "ms_subjects",
-        "label_input", "date_input", "lab_notes_input", "notes_input",
+        "film_sel",
+        "cam_sel",
+        "lab_sel",
+        "ms_lens",
+        "ms_location",
+        "ms_subjects",
+        "label_input",
+        "date_input",
+        "lab_notes_input",
+        "notes_input",
         "selected_images",
     ]:
         st.session_state.pop(key, None)
-    for key in [k for k in list(st.session_state.keys()) if k.startswith(("rev_", "sel_", "confirm_"))]:
+    for key in [
+        k
+        for k in list(st.session_state.keys())
+        if k.startswith(("rev_", "sel_", "confirm_"))
+    ]:
         del st.session_state[key]
     st.session_state.review_idx = 0
 
@@ -164,31 +266,28 @@ def _clear_folder_state():
 def _html_pairs(folder: Path) -> list:
     return [
         (img, _read_xmp_meta(img.with_suffix(".xmp")))
-        for img in sorted(f for f in folder.iterdir() if f.is_file() and f.suffix.lower() in IMAGE_EXTS)
+        for img in sorted(
+            f
+            for f in folder.iterdir()
+            if f.is_file() and f.suffix.lower() in IMAGE_EXTS
+        )
         if img.with_suffix(".xmp").exists()
     ]
 
 
-def _select_all(images: list):
-    st.session_state.selected_images = {img.name for img in images}
-    for img in images:
-        st.session_state[f"sel_{img.name}"] = True
-
-
-def _select_none(images: list):
-    st.session_state.selected_images = set()
-    for img in images:
-        st.session_state[f"sel_{img.name}"] = False
-
-
 # ── Step renderers ─────────────────────────────────────────────────────────────
 
-def _render_folder():
-    st.caption("Choose a folder containing your scanned film images.")
 
-    browse_col, input_col = st.columns([0.7, 4], gap="small")
+def _render_folder():
+    continue_clicked = _page_header(
+        "Choose a folder containing your scanned film images.",
+        "Continue to Roll Info",
+        btn_disabled=st.session_state.folder is None,
+    )
+
+    browse_col, input_col = st.columns([0.9, 4], gap="small")
     with browse_col:
-        if st.button("Browse…", use_container_width=True):
+        if st.button("Choose folder…", use_container_width=True):
             picked = _pick_folder_dialog()
             if picked:
                 st.session_state["folder_input"] = picked
@@ -206,19 +305,20 @@ def _render_folder():
         fp = Path(folder_val).expanduser().resolve()
         if fp.is_dir():
             new_images = sorted(
-                f for f in fp.iterdir()
+                f
+                for f in fp.iterdir()
                 if f.is_file() and f.suffix.lower() in IMAGE_EXTS
             )
             new_roll = load_roll_yaml(fp) if (fp / "roll.yaml").exists() else {}
-            n_tagged_new = sum(1 for img in new_images if img.with_suffix(".xmp").exists())
+            n_tagged_new = sum(
+                1 for img in new_images if img.with_suffix(".xmp").exists()
+            )
 
             if folder != fp:
                 _clear_folder_state()
                 st.session_state.folder = fp
                 st.session_state.roll = new_roll
                 st.session_state.images = new_images
-                st.session_state.browser_opened_for = None
-                st.session_state.step = 2
                 st.rerun()
 
             parts = [f"{len(new_images)} image{'s' if len(new_images) != 1 else ''}"]
@@ -226,8 +326,23 @@ def _render_folder():
                 parts.append(f"{n_tagged_new} tagged")
             parts.append("roll.yaml found" if new_roll else "no roll.yaml")
             st.caption("✓ " + " · ".join(parts))
+
+            if new_images:
+                grid_cols = st.columns(4)
+                for i, img in enumerate(new_images):
+                    with grid_cols[i % 4]:
+                        tagged = img.with_suffix(".xmp").exists()
+                        try:
+                            st.image(_thumb(img), width="stretch")
+                        except Exception:
+                            pass
+                        st.caption(("✓ " if tagged else "") + img.name)
         else:
             st.error("Folder not found.")
+
+    if continue_clicked:
+        st.session_state.next_tab = 1
+        st.rerun()
 
 
 def _render_roll():
@@ -237,88 +352,139 @@ def _render_roll():
         return
 
     roll = st.session_state.roll
+    images = st.session_state.images
     history = _load_history()
 
-    st.caption("Describe the roll — film stock, camera, date, location.")
-
-    _, _, _rc = st.columns(3)
-    with _rc:
-        save_clicked = st.button("Save and continue", type="primary", use_container_width=True)
-
-    label = st.text_input(
-        "Label", value=roll.get("label", ""),
-        placeholder="e.g. Oslo Summer 2024", key="label_input",
+    save_clicked = _page_header(
+        "Enter roll metadata like film stock, camera, date, location, etc.",
+        "Save and continue",
     )
 
-    current_film = roll.get("film", "")
-    film_hist = _history_sorted(history, "film")
-    film_opts = _dedup(([current_film] if current_film else []) + film_hist + KNOWN_FILM_STOCKS)
-    film = st.selectbox(
-        "Film stock", film_opts,
-        index=film_opts.index(current_film) if current_film in film_opts else None,
-        accept_new_options=True, key="film_sel",
-        placeholder="Select or type a film stock…",
-    )
+    form_col, img_col = st.columns([2, 1], gap="large")
 
-    current_cam = roll.get("camera", "")
-    cam_hist = _history_sorted(history, "camera")
-    cam_opts = _dedup(([current_cam] if current_cam else []) + cam_hist + KNOWN_CAMERAS)
-    camera = st.selectbox(
-        "Camera", cam_opts,
-        index=cam_opts.index(current_cam) if current_cam in cam_opts else None,
-        accept_new_options=True, key="cam_sel",
-        placeholder="Select or type a camera…",
-    )
+    with form_col:
+        label = st.text_input(
+            "Label",
+            value=roll.get("label", ""),
+            placeholder="e.g. Oslo Summer 2024",
+            key="label_input",
+        )
 
-    current_lens = _split_list_field(roll.get("lens", ""))
-    lens_opts = _dedup(current_lens + _history_sorted(history, "lens"))
-    lens_sel = st.multiselect(
-        "Lens", options=lens_opts, default=current_lens,
-        accept_new_options=True, key="ms_lens",
-    )
+        current_film = roll.get("film", "")
+        film_hist = _history_sorted(history, "film")
+        film_opts = _dedup(
+            ([current_film] if current_film else []) + film_hist + KNOWN_FILM_STOCKS
+        )
+        film = st.selectbox(
+            "Film stock",
+            film_opts,
+            index=(
+                film_opts.index(current_film) if current_film in film_opts else None
+            ),
+            accept_new_options=True,
+            key="film_sel",
+            placeholder="Select or type a film stock…",
+        )
 
-    date = st.text_input(
-        "Date", value=roll.get("date", ""),
-        placeholder="YYYY-MM or YYYY-MM-DD", key="date_input",
-    )
+        current_cam = roll.get("camera", "")
+        cam_hist = _history_sorted(history, "camera")
+        cam_opts = _dedup(
+            ([current_cam] if current_cam else []) + cam_hist + KNOWN_CAMERAS
+        )
+        camera = st.selectbox(
+            "Camera",
+            cam_opts,
+            index=cam_opts.index(current_cam) if current_cam in cam_opts else None,
+            accept_new_options=True,
+            key="cam_sel",
+            placeholder="Select or type a camera…",
+        )
 
-    current_location = _split_list_field(roll.get("location", ""))
-    loc_opts = _dedup(current_location + _history_sorted(history, "location"))
-    location_sel = st.multiselect(
-        "Location", options=loc_opts, default=current_location,
-        accept_new_options=True, key="ms_location",
-    )
+        current_lens = _split_list_field(roll.get("lens", ""))
+        lens_opts = _dedup(current_lens + _history_sorted(history, "lens"))
+        lens_sel = st.multiselect(
+            "Lens",
+            options=lens_opts,
+            default=current_lens,
+            accept_new_options=True,
+            key="ms_lens",
+        )
 
-    current_subjects = _split_list_field(roll.get("subjects", ""))
-    subj_opts = _dedup(current_subjects + _history_sorted(history, "subjects"))
-    subjects_sel = st.multiselect(
-        "Subjects", options=subj_opts, default=current_subjects,
-        accept_new_options=True, key="ms_subjects",
-    )
+        date = st.text_input(
+            "Date",
+            value=roll.get("date", ""),
+            placeholder="YYYY-MM or YYYY-MM-DD",
+            key="date_input",
+        )
 
-    current_lab = roll.get("lab", "")
-    lab_opts = _dedup(([current_lab] if current_lab else []) + _history_sorted(history, "lab"))
-    lab = st.selectbox(
-        "Lab", lab_opts,
-        index=lab_opts.index(current_lab) if current_lab in lab_opts else None,
-        accept_new_options=True, key="lab_sel",
-        placeholder="Select or type a lab…",
-    )
+        current_location = _split_list_field(roll.get("location", ""))
+        loc_opts = _dedup(current_location + _history_sorted(history, "location"))
+        location_sel = st.multiselect(
+            "Location",
+            options=loc_opts,
+            default=current_location,
+            accept_new_options=True,
+            key="ms_location",
+        )
 
-    lab_notes = st.text_input(
-        "Lab notes", value=roll.get("lab_notes", ""),
-        placeholder="e.g. push 1 stop", key="lab_notes_input",
-    )
-    notes = st.text_input("Notes", value=roll.get("notes", ""), key="notes_input")
+        current_subjects = _split_list_field(roll.get("subjects", ""))
+        subj_opts = _dedup(current_subjects + _history_sorted(history, "subjects"))
+        subjects_sel = st.multiselect(
+            "Subjects",
+            options=subj_opts,
+            default=current_subjects,
+            accept_new_options=True,
+            key="ms_subjects",
+        )
+
+        current_lab = roll.get("lab", "")
+        lab_opts = _dedup(
+            ([current_lab] if current_lab else []) + _history_sorted(history, "lab")
+        )
+        lab = st.selectbox(
+            "Lab",
+            lab_opts,
+            index=lab_opts.index(current_lab) if current_lab in lab_opts else None,
+            accept_new_options=True,
+            key="lab_sel",
+            placeholder="Select or type a lab…",
+        )
+
+        lab_notes = st.text_input(
+            "Lab notes",
+            value=roll.get("lab_notes", ""),
+            placeholder="e.g. push 1 stop",
+            key="lab_notes_input",
+        )
+        notes = st.text_input("Notes", value=roll.get("notes", ""), key="notes_input")
+
+    with img_col:
+        st.space("small")
+        if images:
+            grid_cols = st.columns(2)
+            for i, img in enumerate(images):
+                with grid_cols[i % 2]:
+                    try:
+                        st.image(_thumb(img, 150), width="stretch")
+                    except Exception:
+                        pass
+                    st.caption(img.name)
 
     if save_clicked:
         lens = _join_list_field(lens_sel)
         location = _join_list_field(location_sel)
         subjects = _join_list_field(subjects_sel)
         data = {
-            "film": film or "", "camera": camera or "", "lens": lens, "date": date,
-            "location": location, "subjects": subjects, "lab": lab or "",
-            "lab_notes": lab_notes, "notes": notes, "label": label,
+            "film": film or "",
+            "camera": camera or "",
+            "lens": lens,
+            "date": date,
+            "location": location,
+            "subjects": subjects,
+            "lab": lab or "",
+            "lab_notes": lab_notes,
+            "notes": notes,
+            "label": label,
         }
         write_roll_yaml(folder, data)
         _record(history, "film", film or "")
@@ -333,7 +499,7 @@ def _render_roll():
         _record(history, "lab_notes", lab_notes)
         _save_history(history)
         st.session_state.roll = load_roll_yaml(folder)
-        st.session_state.step = 3
+        st.session_state.next_tab = 2
         st.rerun()
 
 
@@ -353,92 +519,124 @@ def _render_images():
     if "selected_images" not in st.session_state:
         st.session_state.selected_images = {img.name for img in images}
 
-    st.caption(
-        "AI tagging analyzes each image with a vision model and writes a description, "
-        "category, and tags as sidecar metadata. Select images to include, then tag."
+    tag_untagged = _page_header(
+        "Analyze each image with a local vision model and write a description, "
+        "category, and tag metadata. Select images to include, then tag.",
+        "Tag untagged",
+        help="AI-tag images that don't have metadata yet.",
     )
 
-    # ── Action buttons ────────────────────────────────────────────────────────
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        tag_untagged = st.button("Tag untagged", type="primary", use_container_width=True,
-                                 help="AI-tag images that don't have metadata yet.")
-    with c2:
-        retag_selected = st.button("Re-tag selected", use_container_width=True,
-                                   help="Force AI re-tagging on all checked images.")
-    with c3:
-        continue_btn = st.button("Continue", use_container_width=True,
-                                 help="Proceed to review without tagging.")
-
-    # ── Model settings ────────────────────────────────────────────────────────
-    with st.expander("Model settings"):
-        all_models = _get_ollama_models()
-        vision_models = [m for m in all_models if _is_vision_model(m)]
-        text_models = all_models
-        col1, col2 = st.columns(2)
-        with col1:
-            if vision_models:
-                vm_idx = vision_models.index(st.session_state.vision_model) if st.session_state.vision_model in vision_models else 0
-                st.selectbox("Vision model", vision_models, index=vm_idx, key="vision_model")
-            else:
-                st.text_input("Vision model", key="vision_model")
-        with col2:
-            if text_models:
-                tm_idx = text_models.index(st.session_state.text_model) if st.session_state.text_model in text_models else 0
-                st.selectbox("Text model", text_models, index=tm_idx, key="text_model")
-            else:
-                st.text_input("Text model", key="text_model")
-
-    # ── Selection line ────────────────────────────────────────────────────────
-    n_sel = len(st.session_state.selected_images)
-    sc1, sc2, sc3 = st.columns([3, 1, 1.4], gap="small")
-    with sc1:
-        st.markdown(
-            f"<div style='font-size:0.8rem; color:#888; padding-top:0.45rem;'>"
-            f"{n_sel} of {len(images)} selected</div>",
-            unsafe_allow_html=True,
+    # ── Re-tag row ─────────────────────────────────────────────────────────────
+    left, retag_col, rem_col = st.columns([3, 0.5, 0.5])
+    with retag_col:
+        retag_selected = st.button(
+            "Re-tag selected",
+            use_container_width=True,
+            help="Force AI re-tagging on all checked images.",
+            type="tertiary",
         )
-    with sc2:
-        if st.button("select all", key="sel_all", use_container_width=True):
-            _select_all(images)
-            st.rerun()
-    with sc3:
-        if st.button("clear selection", key="sel_clear", use_container_width=True):
-            _select_none(images)
-            st.rerun()
+    with rem_col:
+        remove_tags = st.button(
+            "Un-tag selected",
+            use_container_width=True,
+            help="Delete sidecar metadata from selected images.",
+            type="tertiary",
+        )
 
-    # ── Continue (no tagging) ─────────────────────────────────────────────────
-    if continue_btn:
-        st.session_state.step = 4
+    with left:
+        # ── Model settings ────────────────────────────────────────────────────────
+        with st.popover("Advanced"):
+            st.caption(
+                "contact uses two [ollama](https://ollama.com) models: a **vision model** that "
+                "looks at each image and writes a description, and a **text model** that "
+                "synthesizes the roll summary. Both must be installed locally with ollama. "
+                "Good vision models: `llama3.2-vision`, `moondream`, `llava`. "
+                "For the text model, any instruction-following model works (e.g. `llama3.2`, `mistral`). "
+                "Install with: `ollama pull llama3.2-vision:11b`"
+            )
+            all_models = _get_ollama_models()
+            vision_models = [m for m in all_models if _is_vision_model(m)]
+            text_models = all_models
+            col1, col2 = st.columns(2)
+            with col1:
+                if vision_models:
+                    vm_idx = (
+                        vision_models.index(st.session_state.vision_model)
+                        if st.session_state.vision_model in vision_models
+                        else 0
+                    )
+                    st.selectbox(
+                        "Vision model", vision_models, index=vm_idx, key="vision_model"
+                    )
+                else:
+                    st.text_input("Vision model", key="vision_model")
+            with col2:
+                if text_models:
+                    tm_idx = (
+                        text_models.index(st.session_state.text_model)
+                        if st.session_state.text_model in text_models
+                        else 0
+                    )
+                    st.selectbox(
+                        "Text model", text_models, index=tm_idx, key="text_model"
+                    )
+                else:
+                    st.text_input("Text model", key="text_model")
+
+    # ── Remove tags ────────────────────────────────────────────────────────────
+    if remove_tags:
+        selected = [
+            img for img in images if img.name in st.session_state.selected_images
+        ]
+        for img in selected:
+            xmp = img.with_suffix(".xmp")
+            if xmp.exists():
+                xmp.unlink()
+        for key in [
+            k
+            for k in list(st.session_state.keys())
+            if k.startswith(("rev_", "confirm_"))
+        ]:
+            del st.session_state[key]
+        st.session_state.review_idx = 0
+        pairs = _html_pairs(folder)
+        if pairs:
+            write_roll_html(folder, pairs, roll)
         st.rerun()
 
     # ── AI processing — runs BEFORE grid so progress appears above images ─────
     if tag_untagged or retag_selected:
-        selected_images = [img for img in images if img.name in st.session_state.selected_images]
+        selected_images = [
+            img for img in images if img.name in st.session_state.selected_images
+        ]
         to_process = (
-            selected_images if retag_selected
-            else [img for img in selected_images if not img.with_suffix(".xmp").exists()]
+            selected_images
+            if retag_selected
+            else [
+                img for img in selected_images if not img.with_suffix(".xmp").exists()
+            ]
         )
         if not to_process:
-            st.info(
-                "No images to process. "
-                + ("All selected images are already tagged — use **Re-tag selected** to force."
-                   if not retag_selected else "Select at least one image.")
-            )
+            if tag_untagged:
+                # All selected already tagged — silently advance to Review & Edit
+                st.session_state.next_tab = 3
+                st.rerun()
+            else:
+                st.info("Select at least one image.")
         else:
             n = len(to_process)
             prog = st.progress(0, text=f"Starting… (0 / {n})")
             all_meta: list = []
 
             for i, img in enumerate(to_process):
-                prog.progress(i / n, text=f"{img.name}  ({i + 1} / {n})")
+                prog.progress(i / n, text=f"Tagging {img.name}  ({i + 1} / {n})")
                 try:
                     meta = analyze_image(
                         img,
                         st.session_state.vision_model,
                         st.session_state.text_model,
                         roll,
-                        verbose=False,
+                        verbose=True,
                     )
                     write_xmp(img, meta, roll)
                     all_meta.append(meta)
@@ -448,7 +646,9 @@ def _render_images():
             prog.progress(1.0, text="Finalizing…")
             if all_meta:
                 write_roll_summary(
-                    folder, all_meta, roll,
+                    folder,
+                    all_meta,
+                    roll,
                     st.session_state.vision_model,
                     st.session_state.text_model,
                 )
@@ -457,13 +657,17 @@ def _render_images():
                 write_roll_html(folder, pairs, roll)
             prog.empty()
 
-            for key in [k for k in list(st.session_state.keys()) if k.startswith(("rev_", "confirm_"))]:
+            for key in [
+                k
+                for k in list(st.session_state.keys())
+                if k.startswith(("rev_", "confirm_"))
+            ]:
                 del st.session_state[key]
             st.session_state.review_idx = 0
-            st.session_state.step = 4
+            st.session_state.next_tab = 3
             st.rerun()
 
-    # ── Image grid (thumbnail above, checkbox + name below) ───────────────────
+    # ── Image grid ────────────────────────────────────────────────────────────
     grid_cols = st.columns(4)
     for i, img in enumerate(images):
         with grid_cols[i % 4]:
@@ -473,7 +677,7 @@ def _render_images():
             except Exception:
                 pass
             checked = st.checkbox(
-                ("✓ " if tagged else "") + img.name,
+                img.name + (" · tagged ✓" if tagged else ""),
                 key=f"sel_{img.name}",
                 value=img.name in st.session_state.selected_images,
             )
@@ -481,6 +685,7 @@ def _render_images():
                 st.session_state.selected_images.add(img.name)
             else:
                 st.session_state.selected_images.discard(img.name)
+
 
 def _render_metadata():
     folder = st.session_state.folder
@@ -503,47 +708,54 @@ def _render_metadata():
             st.session_state[f"rev_desc_{img.name}"] = meta.get("description", "")
             st.session_state[f"rev_tags_{img.name}"] = meta.get("tags", [])
 
-    all_known_tags = sorted({
-        tag
-        for img in tagged_images
-        for tag in st.session_state.get(f"rev_tags_{img.name}", [])
-    })
+    all_known_tags = sorted(
+        {
+            tag
+            for img in tagged_images
+            for tag in st.session_state.get(f"rev_tags_{img.name}", [])
+        }
+    )
 
     n = len(tagged_images)
     review_idx = st.session_state.review_idx
 
-    st.caption(
-        "Review and edit the AI-generated metadata for each image. "
-        "Open a frame, adjust if needed, and press Save to move to the next."
-    )
-
-    _, _, _rc = st.columns(3)
-    with _rc:
-        continue_all = st.button(
-            "Save and continue",
+    desc_col, build_col = st.columns([3, 1])
+    with desc_col:
+        _step_desc(
+            "Review and edit the AI-generated metadata for each image. ",
+            mt="0.5rem",
+        )
+    with build_col:
+        build_clicked = st.button(
+            "Save and make contact",
             type="primary",
             use_container_width=True,
-            help="Save all as-is and proceed to the contact sheet.",
+            disabled=not tagged_images,
+            help="Save all edits and open the contact sheet in the browser.",
         )
 
-    if continue_all:
+    index_path = folder / "index.html"
+
+    if build_clicked:
         for img in tagged_images:
-            write_xmp(img, {
-                "category": st.session_state[f"rev_cat_{img.name}"],
-                "description": st.session_state[f"rev_desc_{img.name}"],
-                "tags": list(st.session_state[f"rev_tags_{img.name}"]),
-            }, roll)
+            write_xmp(
+                img,
+                {
+                    "category": st.session_state[f"rev_cat_{img.name}"],
+                    "description": st.session_state[f"rev_desc_{img.name}"],
+                    "tags": list(st.session_state[f"rev_tags_{img.name}"]),
+                },
+                roll,
+            )
         pairs = _html_pairs(folder)
         if pairs:
             write_roll_html(folder, pairs, roll)
-        st.session_state.step = 5
-        st.rerun()
+            webbrowser.open(index_path.as_uri())
+            st.success(f"Contact sheet created: `{index_path}`")
 
     sorted_cats = sorted(VALID_CATEGORIES)
     for i, img in enumerate(tagged_images):
-        is_current = (i == review_idx)
-        exp_label = ("✓ " if i < review_idx else "") + img.name
-        with st.expander(exp_label, expanded=is_current):
+        with st.expander(img.name, expanded=(i == review_idx)):
             c1, c2 = st.columns([1, 2])
             with c1:
                 try:
@@ -568,71 +780,29 @@ def _render_metadata():
                     key=f"rev_tags_{img.name}",
                 )
 
-                if is_current:
-                    is_last = (i == n - 1)
-                    btn_label = "Save metadata" if is_last else "Save"
-                    if st.button(btn_label, key=f"confirm_{img.name}", type="primary"):
-                        write_xmp(img, {
-                            "category": st.session_state[f"rev_cat_{img.name}"],
-                            "description": st.session_state[f"rev_desc_{img.name}"],
-                            "tags": list(st.session_state[f"rev_tags_{img.name}"]),
-                        }, roll)
-                        if is_last:
-                            pairs = _html_pairs(folder)
-                            if pairs:
-                                write_roll_html(folder, pairs, roll)
-                            st.session_state.step = 5
-                        else:
-                            st.session_state.review_idx = i + 1
+                prev_col, next_col = st.columns(2)
+                with prev_col:
+                    if st.button(
+                        "← Previous",
+                        key=f"prev_{img.name}",
+                        disabled=(i == 0),
+                        use_container_width=True,
+                    ):
+                        st.session_state.review_idx = i - 1
+                        st.rerun()
+                with next_col:
+                    if st.button(
+                        "Next →",
+                        key=f"next_{img.name}",
+                        disabled=(i == n - 1),
+                        use_container_width=True,
+                    ):
+                        st.session_state.review_idx = i + 1
                         st.rerun()
 
 
-def _render_contact_sheet():
-    folder = st.session_state.folder
-    if folder is None:
-        st.info("Select a folder first.")
-        return
-
-    roll = st.session_state.roll
-    index_path = folder / "index.html"
-
-    st.caption("Open your contact sheet in the browser, or rebuild it from existing metadata.")
-
-    _, _mc, _rc = st.columns(3)
-    with _mc:
-        rebuild_btn = st.button(
-            "Rebuild contact sheet",
-            use_container_width=True,
-            help="Regenerate HTML from existing metadata — no AI.",
-        )
-    with _rc:
-        open_btn = st.button(
-            "Open in browser",
-            type="primary",
-            use_container_width=True,
-            disabled=not index_path.exists(),
-        )
-
-    if open_btn:
-        webbrowser.open(index_path.as_uri())
-
-    if index_path.exists() and st.session_state.browser_opened_for != str(folder):
-        webbrowser.open(index_path.as_uri())
-        st.session_state.browser_opened_for = str(folder)
-
-    if rebuild_btn:
-        pairs = _html_pairs(folder)
-        if pairs:
-            write_roll_html(folder, pairs, roll)
-            st.success(f"Rebuilt — {len(pairs)} frames.")
-        else:
-            st.info("No tagged images found.")
-
-    if not index_path.exists():
-        st.info("No contact sheet yet — tag some images first, or press Rebuild.")
-
-
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def main():
     _init_state()
@@ -644,46 +814,22 @@ def main():
         if cli_f:
             st.session_state["folder_input"] = cli_f
 
-    st.title("contact")
+    _render_title()
 
-    folder = st.session_state.folder
-    images = st.session_state.images
-    tagged_images = [img for img in images if img.with_suffix(".xmp").exists()]
-
-    available = {
-        1: True,
-        2: folder is not None,
-        3: folder is not None,
-        4: bool(tagged_images),
-        5: True,
-    }
-
-    nav_cols = st.columns(len(_STEPS))
-    for col, (step_num, step_name) in zip(nav_cols, _STEPS):
-        with col:
-            if st.button(
-                step_name,
-                key=f"nav_{step_num}",
-                type="primary" if st.session_state.step == step_num else "secondary",
-                disabled=not available[step_num],
-                use_container_width=True,
-            ):
-                st.session_state.step = step_num
-                st.rerun()
-
-    st.divider()
-
-    step = st.session_state.step
-    if step == 1:
+    tab1, tab2, tab3, tab4 = st.tabs(_TAB_NAMES)
+    with tab1:
         _render_folder()
-    elif step == 2:
+    with tab2:
         _render_roll()
-    elif step == 3:
+    with tab3:
         _render_images()
-    elif step == 4:
+    with tab4:
         _render_metadata()
-    elif step == 5:
-        _render_contact_sheet()
+
+    # Fire tab switch after all content is rendered, then clear the flag
+    if st.session_state.next_tab is not None:
+        _switch_tab(st.session_state.next_tab)
+        st.session_state.next_tab = None
 
 
 if __name__ == "__main__":

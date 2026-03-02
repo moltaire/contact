@@ -6,20 +6,34 @@
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
       xmlns:film="http://ns.contact.local/1.0/">
-      <dc:description>A futuristic-looking building with a cylindrical tower and rounded angular shapes is set against a clear sky. The building's design features a flat roof and a long horizontal section stretching from the main body.</dc:description>
+      <dc:description>The Space Mountain structure dominates the scene, with a large tree branch visible in the background, extending from the top left corner and casting a shadow. The building's surface features a series of windows and vents, adding texture and visual interest. The uniform grey sky provides a neutral backdrop.</dc:description>
       <dc:subject>
         <rdf:Bag>
+      <rdf:li>space mountain</rdf:li>
+      <rdf:li>disney world</rdf:li>
+      <rdf:li>black and white</rdf:li>
+      <rdf:li>tree branch</rdf:li>
+      <rdf:li>windows</rdf:li>
+      <rdf:li>vents</rdf:li>
+      <rdf:li>grey sky</rdf:li>
+      <rdf:li>abandoned cars</rdf:li>
+      <rdf:li>bicycle</rdf:li>
+      <rdf:li>black object</rdf:li>
+      <rdf:li>black-and-white</rdf:li>
+      <rdf:li>boy</rdf:li>
+      <rdf:li>bridge</rdf:li>
       <rdf:li>building</rdf:li>
-      <rdf:li>tower</rdf:li>
-      <rdf:li>structure</rdf:li>
-      <rdf:li>design</rdf:li>
-      <rdf:li>shape</rdf:li>
-      <rdf:li>roof</rdf:li>
-      <rdf:li>sky</rdf:li>
-      <rdf:li>simplicity</rdf:li>
-      <rdf:li>elegance</rdf:li>
-      <rdf:li>Zivkov Television Tower</rdf:li>
-      <rdf:li>brutalism</rdf:li>
+      <rdf:li>buildings</rdf:li>
+      <rdf:li>cobblestones</rdf:li>
+      <rdf:li>corner</rdf:li>
+      <rdf:li>dam</rdf:li>
+      <rdf:li>dark floor</rdf:li>
+      <rdf:li>dark room</rdf:li>
+      <rdf:li>design hotel domus balthasar</rdf:li>
+      <rdf:li>dim lighting</rdf:li>
+      <rdf:li>eyes</rdf:li>
+      <rdf:li>flowers</rdf:li>
+      <rdf:li>fur</rdf:li>
         </rdf:Bag>
       </dc:subject>
       <xmp:CreateDate>2023-09</xmp:CreateDate>
@@ -29,7 +43,7 @@
       <film:lens>Canon FD 50mm 1:1.8 | Canon FD 28mm 1:2.8</film:lens>
       <film:notes>Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</film:notes>
       <film:category>architecture</film:category>
-      <film:processedAt>2026-03-02T09:37:03.207907+00:00</film:processedAt>
+      <film:processedAt>2026-03-02T15:20:43.210090+00:00</film:processedAt>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
