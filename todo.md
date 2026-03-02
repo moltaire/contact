@@ -10,6 +10,6 @@
 
 ## Documentation
 
-- [ ] Add screenshots of the UI
-- [ ] Make sample contact sheet into a GitHub page
+- [x] Add screenshots of the UI
+- [x] Make sample contact sheet into a GitHub page
 - [ ] Add installation instructions for ollama + llama3.2-vision (e.g., brew)
