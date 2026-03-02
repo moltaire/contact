@@ -114,20 +114,20 @@ Roll metadata (gear, location, subjects) is kept out of the tagging stage to pre
 
 ## Try it out
 
-A sample roll is included at `example/sample-roll/`. It has pre-tagged images, XMP sidecars, and a rendered `index.html` so you can see the output without running any models:
+A sample roll is included at `docs/example/sample-roll/`. It has pre-tagged images, XMP sidecars, and a rendered `index.html`. See a live version [here](https://moltaire.github.io/contact). Or run the UI on it yourself:
 
 ```bash
 # Open the contact sheet directly
-open example/sample-roll/index.html
+open docs/example/sample-roll/index.html
 
 # Or load it in the UI (read-only — no Ollama needed to browse)
-contact-ui --folder example/sample-roll/
+contact-ui --folder docs/example/sample-roll/
 ```
 
 To re-process it from scratch:
 
 ```bash
-contact example/sample-roll/ --force
+contact docs/example/sample-roll/ --force
 ```
 
 ---
