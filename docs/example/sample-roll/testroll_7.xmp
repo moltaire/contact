@@ -6,18 +6,18 @@
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
       xmlns:film="http://ns.contact.local/1.0/">
-      <dc:description>A river runs through a park-like area, flanked by a stone wall with a grassy area on the left and a stone bridge on the right. The river is approximately 10-15 feet wide and has a gentle, slow flow. In the background, there are several buildings and trees.</dc:description>
+      <dc:description>A small waterway runs through a park, lined with stone walls and flanked by trees and grassy areas, with a small island on the left and steps leading down to the waterway on the right, set against a background of trees and buildings.</dc:description>
       <dc:subject>
         <rdf:Bag>
-      <rdf:li>river</rdf:li>
-      <rdf:li>stone wall</rdf:li>
-      <rdf:li>grass</rdf:li>
+      <rdf:li>stone walls</rdf:li>
       <rdf:li>trees</rdf:li>
-      <rdf:li>bridge</rdf:li>
-      <rdf:li>buildings</rdf:li>
-      <rdf:li>black and white</rdf:li>
-      <rdf:li>still water</rdf:li>
-      <rdf:li>stone</rdf:li>
+      <rdf:li>grass</rdf:li>
+      <rdf:li>waterway</rdf:li>
+      <rdf:li>weeping willow</rdf:li>
+      <rdf:li>stone wall</rdf:li>
+      <rdf:li>metal railings</rdf:li>
+      <rdf:li>windows</rdf:li>
+      <rdf:li>door</rdf:li>
         </rdf:Bag>
       </dc:subject>
       <xmp:CreateDate>2023-09</xmp:CreateDate>
@@ -27,7 +27,7 @@
       <film:lens>Canon FD 50mm 1:1.8 | Canon FD 28mm 1:2.8</film:lens>
       <film:notes>Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</film:notes>
       <film:category>landscape</film:category>
-      <film:processedAt>2026-03-02T15:20:43.210739+00:00</film:processedAt>
+      <film:processedAt>2026-03-02T16:00:43.501179+00:00</film:processedAt>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>

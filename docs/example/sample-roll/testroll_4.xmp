@@ -6,18 +6,20 @@
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
       xmlns:film="http://ns.contact.local/1.0/">
-      <dc:description>A boy rides a bicycle across a city square, while a woman walks past him. The square is empty, with a few streetlights and a small sign on the right-hand side.</dc:description>
+      <dc:description>A woman and a child are walking and riding in an urban space with a large ornate building and a modern structure, set against a backdrop of natural light.</dc:description>
       <dc:subject>
         <rdf:Bag>
-      <rdf:li>boy</rdf:li>
       <rdf:li>woman</rdf:li>
+      <rdf:li>child</rdf:li>
       <rdf:li>bicycle</rdf:li>
-      <rdf:li>buildings</rdf:li>
-      <rdf:li>streetlights</rdf:li>
-      <rdf:li>sign</rdf:li>
-      <rdf:li>black-and-white</rdf:li>
-      <rdf:li>urban</rdf:li>
-      <rdf:li>modern</rdf:li>
+      <rdf:li>building</rdf:li>
+      <rdf:li>archway</rdf:li>
+      <rdf:li>windows</rdf:li>
+      <rdf:li>columns</rdf:li>
+      <rdf:li>carvings</rdf:li>
+      <rdf:li>glass</rdf:li>
+      <rdf:li>metal</rdf:li>
+      <rdf:li>natural light</rdf:li>
         </rdf:Bag>
       </dc:subject>
       <xmp:CreateDate>2023-09</xmp:CreateDate>
@@ -27,7 +29,7 @@
       <film:lens>Canon FD 50mm 1:1.8 | Canon FD 28mm 1:2.8</film:lens>
       <film:notes>Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</film:notes>
       <film:category>street</film:category>
-      <film:processedAt>2026-03-02T15:20:43.210536+00:00</film:processedAt>
+      <film:processedAt>2026-03-02T16:00:43.500932+00:00</film:processedAt>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>

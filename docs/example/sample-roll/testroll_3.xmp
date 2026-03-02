@@ -6,18 +6,18 @@
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
       xmlns:film="http://ns.contact.local/1.0/">
-      <dc:description>A metal beam is centered in a large, dark, industrial space, surrounded by a circular opening in the floor, likely a manhole or access point. The beam is positioned at the center of the image, with its top end pointing upwards towards the camera. The background is dark and indistinct, but shadows and reflections on the beam suggest other objects or structures in the surrounding area.</dc:description>
+      <dc:description>The photograph depicts a disused, subterranean space featuring a large, abandoned, metal, circular structure. The setting is a subterranean or below-ground structure that appears to be out of use. The structure is darkly lit, with no visible source of natural or artificial light.</dc:description>
       <dc:subject>
         <rdf:Bag>
-      <rdf:li>metal beam</rdf:li>
-      <rdf:li>manhole</rdf:li>
-      <rdf:li>industrial space</rdf:li>
-      <rdf:li>high-angle view</rdf:li>
-      <rdf:li>black-and-white</rdf:li>
-      <rdf:li>steel</rdf:li>
-      <rdf:li>iron</rdf:li>
-      <rdf:li>shadows</rdf:li>
-      <rdf:li>reflections</rdf:li>
+      <rdf:li>abandoned</rdf:li>
+      <rdf:li>structure</rdf:li>
+      <rdf:li>metal</rdf:li>
+      <rdf:li>industrial</rdf:li>
+      <rdf:li>circular</rdf:li>
+      <rdf:li>subterranean</rdf:li>
+      <rdf:li>space</rdf:li>
+      <rdf:li>dark</rdf:li>
+      <rdf:li>empty</rdf:li>
         </rdf:Bag>
       </dc:subject>
       <xmp:CreateDate>2023-09</xmp:CreateDate>
@@ -26,8 +26,8 @@
       <film:camera>Canon A-1</film:camera>
       <film:lens>Canon FD 50mm 1:1.8 | Canon FD 28mm 1:2.8</film:lens>
       <film:notes>Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</film:notes>
-      <film:category>architecture</film:category>
-      <film:processedAt>2026-03-02T15:20:43.210457+00:00</film:processedAt>
+      <film:category>other</film:category>
+      <film:processedAt>2026-03-02T16:00:43.500850+00:00</film:processedAt>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
