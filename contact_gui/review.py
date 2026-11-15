@@ -130,10 +130,10 @@ class ReviewView:
         # People and landmarks: one row each, in a box that matches the fields around it.
         # The chips scroll sideways inside their row; the add fields never move.
         with ui.column().classes("w-full gap-1 field-box"):
-            self.person_input = self._chip_row("People", self._people_chips, "Add person…",
+            self.person_input = self._chip_row("People", self._people_chips, "+ person",
                                                "subjects", self._add_person)
             self.landmark_input = self._chip_row("Landmarks", self._landmark_chips,
-                                                 "Add landmark…", "landmarks", self._add_landmark)
+                                                 "+ landmark", "landmarks", self._add_landmark)
 
         self.place = ui.select([], label="Place — City, Country", with_input=True,
                                clearable=True, new_value_mode="add-unique",
@@ -147,7 +147,7 @@ class ReviewView:
                 chips()
             field = ui.input(placeholder=placeholder,
                              autocomplete=state.suggestions(history_key)) \
-                .props("dense borderless input-class=text-right").classes("w-36 shrink-0 text-sm")
+                .props("dense borderless input-class=text-right").classes("w-24 shrink-0 text-sm")
             field.on("keydown.enter", on_add)
         return field
 
