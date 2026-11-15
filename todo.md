@@ -12,8 +12,9 @@
 - [x] Test what was coded but not exercised: place dropdown and duplicate handling, summary refresh on the contact sheet step, re-tag keeping people/place/facts, refine on several frames, light theme
 
 ### 2. Remove Streamlit
-- [ ] Delete `app.py`, `contact_ui.py`, the dependency and the README section (git tag `last-streamlit` marks the last commit that has it)
-- [ ] Decide the command name: keep `contact-gui`, or reuse `contact-ui` for the new app
+- [x] Delete `app.py`, `contact_ui.py`, the dependency and the README section (git tag `last-streamlit` marks the last commit that has it)
+- [x] Command name: `contact-ui` now starts the new app; `contact-gui` is kept as an alias
+- [ ] README screenshots still show the Streamlit UI — retake
 
 ### 3. Keep tags, people and places apart
 - [ ] Tags are generic keywords only, always lowercase — enforced in code, not left to the model
@@ -71,5 +72,5 @@
 - [x] The review process is very slow (saving and moving on to the next). NiceGUI app: one frame at a time, autosave, arrow keys.
 - [ ] Replace the two-stage vision + synthesis calls with one structured call (faster; fixes wordy tags and wrong categories such as cat = portrait)
 - [ ] Option to re-process only frames with empty descriptions
-- [ ] Remove the Streamlit app once the NiceGUI app has proven itself
+- [x] Remove the Streamlit app once the NiceGUI app has proven itself
 - [ ] Add tests (parser, roll.yaml and XMP round-trips)

@@ -23,33 +23,11 @@ ollama pull gemma4:e4b
 uv tool install .
 ```
 
-This installs three commands: `contact` (CLI), `contact-gui` (new NiceGUI app) and `contact-ui` (older Streamlit app).
+This installs two commands: `contact` (CLI) and `contact-ui` (browser app; `contact-gui` is the same thing).
 
 ---
 
-## NiceGUI app (new)
-
-```bash
-contact-gui
-# or with a folder pre-loaded:
-contact-gui --folder ~/scans/tuscany/
-```
-
-Same five steps as the Streamlit UI — folder, roll info, tagging, review, contact sheet — with a few differences:
-
-- Tagging runs in the background: you can switch tabs, reload or close the browser and the run carries on. Failed frames are listed and stay untagged so they can be retried.
-- Review shows one frame at a time. Edits are saved automatically; use ← → or the filmstrip to move between frames.
-- The contact sheet step can rename the folder to the standard `date_label` pattern.
-- In review you can add what the model cannot know:
-  - **Tell the model a fact** ("this is the Parthenon in Athens") and it rewrites description, tags and category, with undo. Facts are stored with the frame and re-applied when it is re-tagged.
-  - **People:** toggle who is in the frame (keys 1–9). New names are added to the roll's subjects.
-  - **Place:** set where the frame was taken. New places are added to the roll's locations.
-  - ⌘/Ctrl-click or Shift-click frames in the filmstrip to apply any of these to several frames at once.
-- Dark theme by default; start with `--light` for the paper theme.
-
-The Streamlit UI below still works and will be removed once the new app has proven itself.
-
-## Streamlit UI
+## App
 
 ```bash
 contact-ui
@@ -57,14 +35,19 @@ contact-ui
 contact-ui --folder ~/scans/tuscany/
 ```
 
-A guided 4-step flow:
+The app runs locally and opens in your browser. Five steps:
 
-1. **Select Folder** — type or browse to a folder of scans
-2. **Roll Info** — describe the roll: film stock, camera, lens, date, location, lab
-3. **Frame Analysis** — AI-tag images; select which ones to process, choose models
-4. **Review & Edit** — inspect and correct the AI-generated metadata frame by frame.
+1. **Folder** — type or browse to a folder of scans
+2. **Roll info** — describe the roll: film stock, camera, lens, date, location, subjects, lab
+3. **Tagging** — choose frames and let the model describe them. Runs in the background: you can switch tabs, reload or close the browser and the run carries on. Failed frames are listed and stay untagged so they can be retried.
+4. **Review** — one frame at a time. Edits are saved automatically; use ← → or the filmstrip to move between frames. Here you can add what the model cannot know:
+   - **Tell the model a fact** ("this is the Parthenon in Athens") and it rewrites description, tags and category, with undo. Facts are stored with the frame and re-applied when it is re-tagged.
+   - **People:** toggle who is in the frame (keys 1–9). New names are added to the roll's subjects.
+   - **Place:** where the frame was taken, written as `Local place, City, Country`. New places are added to the roll's locations.
+   - ⌘/Ctrl-click or Shift-click frames in the filmstrip to apply any of these to several frames at once.
+5. **Contact sheet** — rebuilt from your edits, with the roll summary refreshed. The folder can be renamed to the standard `date_label` pattern here.
 
-After review, the **contact** sheet is generated.
+Dark theme by default; start with `--light` for the light one.
 
 ---
 
