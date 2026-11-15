@@ -428,6 +428,10 @@ class ReviewView:
         if completed != text:
             self.note.set_value(completed)
 
+    def _leave_note(self) -> None:
+        """Return applies and hands the keyboard back, so ← → work straight away."""
+        self.note.run_method("blur")
+
     def _run_command(self, text: str) -> None:
         """Set a field straight from the fact field, e.g. "/person Felix". No model involved."""
         try:
@@ -452,6 +456,7 @@ class ReviewView:
                 self._write(i, {**meta, "tags": [*meta.get("tags", []), *values]})
         self.note.set_value("")
         self._update_completions()
+        self._leave_note()
 
     # ── Refining with the model ───────────────────────────────────────────────
 
@@ -463,6 +468,7 @@ class ReviewView:
             self._run_command(note)
             return
         self.save()
+        self._leave_note()
         targets = self._targets()
         self._refining = True
         self.refine_button.disable()

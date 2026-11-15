@@ -23,9 +23,10 @@ from .sheet import SheetView
 from .state import state
 from .tagging import TaggingView
 
-# Two keys are handled in the browser itself:
-#   "/"  jumps to the fact field in review. Only here can the key be kept from Firefox's
-#        quick find, and focusing directly is instant.
+# Three keys are handled in the browser itself:
+#   Return and "/" jump to the fact field in review. Only here can "/" be kept from
+#        Firefox's quick find and Return from re-pressing a button that still has
+#        focus; focusing directly is also instant.
 #   Esc  leaves whatever field has the cursor (tags, description, place, …), which hands
 #        the keyboard back to the shortcuts. Dialogs keep their own Esc.
 _SLASH_KEY_SCRIPT = """
@@ -37,8 +38,9 @@ document.addEventListener("keydown", (event) => {
     target.blur();
     return;
   }
-  if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
-  if (typing) return;
+  if (event.key !== "/" && event.key !== "Enter") return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (typing || document.querySelector(".q-dialog")) return;
   const field = document.querySelector(".fact-field input");
   if (!field || field.offsetParent === null) return;  // review is not showing
   event.preventDefault();

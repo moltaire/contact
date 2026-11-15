@@ -11,9 +11,9 @@ _SECTIONS = {
     "Review": [
         ("← →", "Previous / next frame"),
         ("1 … 9", "Toggle a person on the frame"),
-        ("/", "Jump to the fact field"),
+        ("Return", "Jump to the fact field ( / works too)"),
         ("Esc", "Leave the field you are typing in"),
-        ("Enter", "Send the fact to the model, or run the command"),
+        ("Return", "In the field: apply, and leave it"),
         ("⌘ click", "Add a frame to the selection (Ctrl on Windows and Linux)"),
         ("⇧ click", "Select a range of frames"),
         ("A", "Select all frames"),
