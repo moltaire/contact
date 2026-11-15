@@ -23,6 +23,7 @@ from processor.roll import normalize_name, normalize_place
 from processor.sidecar import write_xmp
 from processor.tagger import VALID_CATEGORIES, ensure_ollama, refine_frame, sanitize_tags
 
+from .commands import CommandError, completions, is_command, parse_command
 from .files import thumb_url
 from .state import state
 
@@ -78,10 +79,17 @@ class ReviewView:
                     self.status = ui.label().classes("text-xs text-grey-6 mono whitespace-nowrap")
                     with ui.icon("help_outline", size="xs").classes("text-grey-6"):
                         ui.tooltip(
-                            "Edits are saved automatically. ← → move between frames, "
-                            "1–9 toggle people. People, place and facts also apply to frames "
-                            "selected in the strip (⌘/Ctrl-click, Shift-click for a range)."
-                        ).classes("text-sm max-w-xs")
+                            "Edits are saved automatically.\n"
+                            "← →  move between frames\n"
+                            "1–9  toggle people\n"
+                            "/  jump to the fact field, Esc leaves it\n\n"
+                            "In the fact field, a line starting with / sets a field directly:\n"
+                            "/person Name   /landmark Name\n"
+                            "/place City, Country   /tag keyword\n"
+                            "Tab completes a name.\n\n"
+                            "People, landmarks, place and facts also apply to frames selected "
+                            "in the strip (⌘/Ctrl-click, Shift-click for a range)."
+                        ).classes("text-sm max-w-sm whitespace-pre-line")
                 # Top edge: navigation. Bottom edge: place, level with the bottom of the
                 # frame. In between, two groups — the text (description, refine) and the
                 # labels (tags, people, landmarks, category, place) — with small gaps inside
@@ -116,9 +124,10 @@ class ReviewView:
         # Tell the model a fact and let it rewrite description, tags and category
         with ui.row().classes("w-full items-center no-wrap gap-2"):
             self.note = ui.input(
-                placeholder="Tell the model a fact, e.g. “this is the Parthenon”"
+                placeholder="Tell the model a fact — or /person, /landmark, /place"
             ).props("outlined dense").classes("grow")
             self.note.on("keydown.enter", self._refine)
+            self.note.on("keydown.escape", lambda: self.note.run_method("blur"))
             # Facts already given, without taking a line of their own
             with ui.icon("format_list_bulleted", size="xs").classes("text-grey-6") \
                     as self.notes_icon:
@@ -207,6 +216,8 @@ class ReviewView:
             self.go(self.index - 1)
         elif e.key.arrow_right:
             self.go(self.index + 1)
+        elif str(e.key.name) == "/":
+            self.note.run_method("focus")
         elif str(e.key.name) in list("123456789"):
             n = int(str(e.key.name)) - 1
             if n < len(self.person_names):
@@ -257,6 +268,7 @@ class ReviewView:
         self.notes_tip.set_text("Facts given:\n" + "\n".join(f"• {n}" for n in notes))
         self._people_chips.refresh()
         self._landmark_chips.refresh()
+        self._update_completions()
         self.counter.set_text(f"{self.index + 1} / {len(self.pairs)}")
         self.prev_button.set_enabled(self.index > 0)
         self.next_button.set_enabled(self.index < len(self.pairs) - 1)
@@ -388,10 +400,12 @@ class ReviewView:
             self.on_roll_changed()
 
     def _place_changed(self) -> None:
-        if self._loading:
-            return
+        if not self._loading:
+            self._set_place(self.place.value or "")
+
+    def _set_place(self, typed: str) -> None:
         self.save()
-        place = normalize_place(self.place.value or "", self._known_places())
+        place = normalize_place(typed, self._known_places())
         if place == self._roll_place():
             place = ""  # same as the roll's only location: nothing to store on the frame
         for i in self._targets():
@@ -404,11 +418,49 @@ class ReviewView:
         self.place.set_options(self._known_places(), value=place or self._roll_place() or None)
         self._loading = False
 
+    # ── Slash commands ────────────────────────────────────────────────────────
+
+    def _update_completions(self) -> None:
+        """Offer "/person Ines" and the like as inline completions (Tab accepts)."""
+        self.note.set_autocomplete(completions(
+            list(dict.fromkeys([*self.person_names, *state.suggestions("subjects")])),
+            list(dict.fromkeys([*self.landmark_names, *state.suggestions("landmarks")])),
+            self._known_places(),
+        ))
+
+    def _run_command(self, text: str) -> None:
+        """Set a field straight from the fact field, e.g. "/person Felix". No model involved."""
+        try:
+            command, values = parse_command(text)
+        except CommandError as e:
+            ui.notify(str(e), type="warning")
+            return
+        if command == "person":
+            known = [*self.person_names, *state.suggestions("subjects")]
+            for value in values:
+                self._set_person(normalize_name(value, known), True)
+        elif command == "landmark":
+            known = [*self.landmark_names, *state.suggestions("landmarks")]
+            for value in values:
+                self._set_landmark(normalize_name(value, known), True)
+        elif command == "place":
+            self._set_place(values[0])
+        elif command == "tag":
+            self.save()
+            for i in self._targets():
+                meta = self.pairs[i][1]
+                self._write(i, {**meta, "tags": [*meta.get("tags", []), *values]})
+        self.note.set_value("")
+        self._update_completions()
+
     # ── Refining with the model ───────────────────────────────────────────────
 
     async def _refine(self) -> None:
         note = (self.note.value or "").strip()
         if not note or self._refining:
+            return
+        if is_command(note):
+            self._run_command(note)
             return
         self.save()
         targets = self._targets()

@@ -49,6 +49,7 @@ The app runs locally and opens in your browser. Five steps:
    - **Landmarks:** named things in the frame — buildings, monuments, venues ("Neue Nationalgalerie"). Type one once, then toggle it on other frames. A fact that names a landmark adds it for you.
    - **Place:** where the frame was taken, always `City, Country`. A frame without its own place uses the roll's.
    - ⌘/Ctrl-click or Shift-click frames in the filmstrip to apply any of these to several frames at once.
+   - **Keyboard:** `/` jumps to the fact field (Esc leaves it). A line starting with `/` sets a field directly, without the model: `/person Felix`, `/landmark Neue Nationalgalerie`, `/place Athens, Greece`, `/tag scaffolding`. Short forms work (`/pe`, `/l`, `/pl`, `/t`), several names can be separated by commas, and Tab completes a known name.
 5. **Contact sheet** — rebuilt from your edits, with the roll summary refreshed. The folder can be renamed to the standard `date_label` pattern here.
 
 Dark theme by default; start with `--light` for the light one.

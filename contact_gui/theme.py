@@ -71,7 +71,8 @@ body.body--dark .text-grey-8 {{ color: {ALUMINIUM} !important; }}
 /* A frame, as on a contact sheet: black surround */
 .frame {{ background: #0a0a0a; border-radius: 2px; }}
 .frame-current {{ outline: 3px solid {ORANGE}; outline-offset: 2px; }}
-.frame-selected {{ outline: 2px dashed {ORANGE}; outline-offset: 2px; }}
+/* selected alongside the current frame: the same frame, thinner and fainter */
+.frame-selected {{ outline: 2px solid rgba(245, 150, 29, 0.5); outline-offset: 2px; }}
 .frame-dim {{ opacity: 0.5; }}
 .frame-dim:hover {{ opacity: 0.9; }}
 

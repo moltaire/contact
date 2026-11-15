@@ -36,7 +36,7 @@
 - [ ] Rolls saved earlier still list landmarks under subjects, and their frames under people — no bulk fix yet
 
 ### Ideas for later
-- [ ] Slash commands in the refine field for keyboard-only review: `/person Felix`, `/landmark Neue Nationalgalerie`, `/place Athens, Greece` set the field directly without calling the model; anything else is a fact for the model as today. A key (`/`) jumps to the refine field from anywhere in review.
+- [x] Slash commands in the refine field for keyboard-only review: `/person`, `/landmark`, `/place`, `/tag` set the field directly without calling the model; `/` jumps to the field, Esc leaves it
 
 ### Later
 - Tests, cross-roll index and search, contact sheet redesign, coordinates for places, AI-suggested roll label, Ollama install instructions
