@@ -1,7 +1,7 @@
 """
 processor/tagger.py
 ───────────────────
-Ollama API helpers, prompts, per-frame analysis, and roll summary generation.
+Ollama API helpers, prompts, per-frame analysis, refinement, and roll summary generation.
 """
 
 import json
@@ -28,68 +28,49 @@ VALID_CATEGORIES = {
     "landscape", "portrait", "street", "architecture",
     "nature", "abstract", "other",
 }
-SYNTHESIS_KEYS = {"CATEGORY", "TAGS", "DESCRIPTION"}
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
-VISION_SYSTEM = (
-    "You are an image analysis assistant. "
-    "Describe what you see accurately and in detail."
+_CATEGORY_RULES = """\
+- category: exactly one of
+  portrait      a person's face is clearly visible and is the main subject (people only — \
+never an animal; a figure seen from behind or at a distance is not a portrait)
+  street        candid scene in a public urban setting with people or activity
+  architecture  a building or structure is the main subject
+  landscape     outdoor scenery — countryside, water, a wide city view — where no person dominates
+  nature        plants or animals are the main subject
+  abstract      pattern, texture or shape is the subject, with no recognisable scene
+  other         anything not covered above"""
+
+_TAG_RULES = """\
+- tags: 6 to 10 generic keywords for what is visible, most important first. Lowercase, \
+one or two words each ("cobblestone", "street lamp"). People by type only (man, woman, \
+child, group). Add a lighting keyword only if it is obvious (backlight, high contrast, \
+golden hour, window light). Never use names of people or places as tags."""
+
+_DESCRIPTION_RULES = """\
+- description: 2-3 factual sentences on subject, setting and composition. Describe only \
+what is visible. No "The image shows" phrasing, no mood or atmosphere, no mention of film, \
+grain or equipment."""
+
+ANALYZE_SYSTEM = (
+    "You are a cataloguing assistant for a photographer's archive of analog film scans. "
+    "You describe photographs accurately and answer with JSON only."
 )
 
-VISION_PROMPT = (
-    "Describe the content of this photograph: subject, composition, lighting, and setting. "
-    "Be specific and concrete. Describe only what is visually present — "
-    "do not infer mood, atmosphere, or emotional tone. "
-    "Do not start with 'The image shows' — just describe directly."
-)
+ANALYZE_PROMPT = f"""\
+Catalogue the attached photograph. Rules:
+{_DESCRIPTION_RULES} Refer to people generically (a man, a woman, two people) and do \
+not guess who or where — no names of people, landmarks, cities or countries.
+{_TAG_RULES}
+{_CATEGORY_RULES}"""
 
-VISION_PROMPT_FALLBACK = (
-    "In one or two sentences, name the main subject and setting of this photograph. "
-    "Be brief and concrete."
-)
-
-SYNTHESIS_SYSTEM = (
-    "You are a metadata assistant for analog film photography. "
-    "You output exactly three lines in KEY: VALUE format and nothing else."
-)
-
-SYNTHESIS_PROMPT_TMPL = """\
-Output exactly these three lines — nothing else:
-
-CATEGORY: <exactly one of: landscape, portrait, street, architecture, nature, abstract, other>
-TAGS: <up to 12 comma-separated descriptive keywords>
-DESCRIPTION: <2-3 sentences describing what is in the scene>
-
-{vision_section}
-
-Rules:
-- CATEGORY: portrait means the face of a person is clearly visible and is the primary subject — \
-a figure seen from behind, at a distance, or without a visible face is NOT a portrait; \
-landscape = outdoor scenery or countryside where no person dominates; \
-street = candid scene in a public urban setting with people or activity; \
-architecture = a building or structure is the main subject; \
-nature = plants, animals, or natural setting without human structures; \
-abstract = pattern or texture is the subject with no recognisable scene; \
-other = anything not covered above
-- TAGS must be extracted directly from the visual description — do not add any subject, \
-person, animal, or object that is not explicitly mentioned in the visual description; \
-if you are unsure whether something is present, omit it; \
-list visible physical subjects first (people by generic type only: man, woman, child, group — \
-never proper names; then other objects and setting); \
-only then add lighting qualities — only if clearly visible, using these definitions: \
-'natural light' (daylight is the apparent source), \
-'window light' (a window is the light source), \
-'golden hour' (warm orange or yellow low-angle sunlight is visible — not just any outdoor light), \
-'bokeh' (background is visibly blurred), \
-'high contrast' (extreme difference between light and shadow areas)
-- DESCRIPTION: describe only subjects and details present in the visual description above — \
-do not introduce people, animals, or objects not mentioned there; \
-factual; no "The image shows" phrasing; \
-do not mention film, grain, or equipment; \
-refer to people generically (a man, a woman, two people) — do not use proper names; \
-do not describe mood, atmosphere, or emotional tone — avoid words like peaceful, serene, \
-calm, relaxed, cozy, warm, tranquil, joyful, melancholic, intimate"""
+# Fallback when the full prompt makes a model loop or return nothing
+ANALYZE_PROMPT_SHORT = f"""\
+Catalogue the attached photograph briefly.
+- description: one or two plain sentences naming the main subject and setting.
+- tags: up to 6 lowercase keywords for what is visible.
+{_CATEGORY_RULES}"""
 
 ROLL_SUMMARY_SYSTEM = "You are a photography archivist. Write concise, factual roll summaries."
 
@@ -113,7 +94,7 @@ Do not describe mood, atmosphere, or emotional qualities. \
 Do not mention film, camera, equipment, or technical qualities."""
 
 REFINE_SYSTEM = (
-    "You are a metadata assistant for a photographer's archive. "
+    "You are a cataloguing assistant for a photographer's archive. "
     "You update a photo's metadata using facts the photographer gives you. "
     "You answer with JSON only."
 )
@@ -127,64 +108,57 @@ DESCRIPTION: {description}
 
 The photographer, who took this photo, states these facts about it:
 {notes}
-{known_places}
+{context}
 Rewrite the metadata so that it reflects these facts. Rules:
 - The photographer's facts are true, even where the image alone would not prove them. \
-Where they name something the current metadata describes generically, use the name \
+Where they name something the current description refers to generically, use the name \
 (for example "an ancient temple" becomes "the Parthenon").
+- Names are often typed casually ("parthenon", "st nicholas"). Never copy that as typed: \
+write every proper name with its correct spelling and capitalization.
+- Every fact must end up in the description, including occasions and events \
+("celebrating a birthday") that the image alone does not show.
 - Keep everything else that is still accurate. Do not add details that are neither \
 visible in the image nor stated by the photographer.
-- description: 2-3 factual sentences. No "The image shows" phrasing, no mood or atmosphere, \
-no mention of film, grain or equipment.
-- Names are often typed casually ("parthenon", "st nicholas"). Never copy that as typed: \
-write every proper name with its correct spelling and capitalization ("Parthenon", \
-"St. Nicholas Church"), in the description and in the tags alike. Fix existing tags too.
-- tags: up to 12 keywords; generic keywords in lowercase ("temple", "columns"), proper \
-names capitalized ("Parthenon", "Athens"); include the specific names the photographer \
-gave and drop generic tags they make redundant.
-- category: exactly one of landscape, portrait, street, architecture, nature, abstract, other.
+{description_rules}
+{tag_rules} Named things belong in the description and the place, not in the tags: \
+for "the Parthenon" the tag is "temple".
+{category_rules}
 - place: where the photo was taken, only if the photographer's facts name a place; \
 otherwise an empty string. Never guess a place. Write it most specific first, comma \
 separated, as "Local place, City, Country" or "City, Country" (for example \
-"Parthenon, Athens, Greece"). If a known place of this roll fits, end with exactly that."""
+"Parthenon, Athens, Greece"). A named building, venue or event is the local place. \
+If a known place of this roll fits, end with exactly that."""
 
-_REFINE_SCHEMA = {
+# ── Answer formats ────────────────────────────────────────────────────────────
+
+_ANALYZE_SCHEMA = {
     "type": "object",
     "properties": {
         "description": {"type": "string"},
         "tags": {"type": "array", "items": {"type": "string"}},
         "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)},
+    },
+    "required": ["description", "tags", "category"],
+}
+_REFINE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **_ANALYZE_SCHEMA["properties"],
         "place": {"type": "string"},
     },
     "required": ["description", "tags", "category", "place"],
 }
-_REFINE_OPTS = {"num_predict": 500}
 
-# Three escalating attempts: full prompt → short fallback → very short fallback.
+# Escalating attempts: full prompt, then a shorter one with a stronger repeat penalty.
 # Budgets are generous on purpose: a truncated answer is worse than a slow one.
-_VISION_ATTEMPTS = [
-    (VISION_PROMPT,          {"num_predict": 600, "repeat_penalty": 1.3}),
-    (VISION_PROMPT_FALLBACK, {"num_predict": 200, "repeat_penalty": 1.5}),
-    (VISION_PROMPT_FALLBACK, {"num_predict": 120, "repeat_penalty": 1.8}),
+_ANALYZE_ATTEMPTS = [
+    (ANALYZE_PROMPT,       {"num_predict": 600, "repeat_penalty": 1.1}),
+    (ANALYZE_PROMPT,       {"num_predict": 600, "repeat_penalty": 1.3}),
+    (ANALYZE_PROMPT_SHORT, {"num_predict": 300, "repeat_penalty": 1.5}),
 ]
-_SYNTH_OPTS = {"num_predict": 400, "repeat_penalty": 1.1}
+_REFINE_OPTS = {"num_predict": 600}
 _SUMMARY_OPTS = {"num_predict": 300, "repeat_penalty": 1.1}
-
-_PERSON_TERMS = {
-    "man", "woman", "child", "boy", "girl", "person", "people",
-    "couple", "group", "baby", "infant", "toddler", "teenager",
-}
-
-_PERSON_PLURALS = {
-    "man": "men", "woman": "women", "child": "children", "person": "people",
-}
-
-_VISION_OPENER = re.compile(
-    r"^(the (main subject|photograph|image|photo)( of this (photograph|image|photo))?"
-    r"( (shows?|depicts?|captures?|is ))?"
-    r"|this (image|photograph|photo) (shows?|depicts?|is ))",
-    re.I,
-)
+_MAX_TAG_WORDS = 3
 
 # ── Ollama helpers ─────────────────────────────────────────────────────────────
 
@@ -330,12 +304,10 @@ def _generate(
     return text
 
 
-def _call_vision(b64: str, model: str, prompt: str, system: str, options: dict | None = None) -> str:
-    return _generate(model, prompt, system, options, images=[b64], timeout=300)
-
 
 def _call_text(model: str, prompt: str, system: str, options: dict | None = None) -> str:
     return _generate(model, prompt, system, options, timeout=120)
+
 
 
 # ── Repetition guard ──────────────────────────────────────────────────────────
@@ -377,91 +349,79 @@ def _is_repetitive(text: str) -> bool:
     return max(wc.values()) / len(clean) >= 0.35
 
 
-# ── Synthesis parser ──────────────────────────────────────────────────────────
+# ── Reading the model's answer ────────────────────────────────────────────────
 
 
-_SYNTH_LINE = re.compile(
-    r"^[\s*#>\-`_]*(CATEGORY|TAGS|DESCRIPTION)[\s*`_]*:[\s*`_]*(.*)$", re.I
-)
+def sanitize_tags(
+    tags: list, people: list[str] | None = None, place: str = "", max_words: int | None = None
+) -> list[str]:
+    """Tags are generic keywords: lowercase, unique, and never a person or a place.
 
-
-def _clean_value(value: str) -> str:
-    return value.strip().strip("*`_").strip()
-
-
-def parse_synthesis(text: str) -> dict:
-    """Parse the three KEY: VALUE lines, tolerating markdown decoration and wrapped lines."""
-    result: dict = {}
-    last_key = None
-    for line in text.strip().splitlines():
-        m = _SYNTH_LINE.match(line)
-        if m:
-            last_key = m.group(1).lower()
-            result[last_key] = _clean_value(m.group(2))
-        elif last_key and line.strip():
-            # Continuation of the previous value (e.g. a description wrapped over lines)
-            result[last_key] = (result[last_key] + " " + _clean_value(line)).strip()
-
-    tags_raw = result.get("tags", "")
-    seen: set = set()
-    tags: list = []
-    for t in tags_raw.split(","):
-        t = t.strip().strip("*`_.").strip().lower()
-        if t and t not in seen:
-            seen.add(t)
-            tags.append(t)
-    result["tags"] = tags
-
-    category = result.get("category", "").lower().strip(" .*`_")
-    result["category"] = category if category in VALID_CATEGORIES else "other"
-
-    return result
-
-
-def _person_forms(term: str) -> set:
-    return {term, term + "s", _PERSON_PLURALS.get(term, term + "s")}
-
-
-def _has_person(text: str) -> bool:
-    t = text.lower()
-    return any(
-        re.search(r"\b" + re.escape(f) + r"\b", t)
-        for term in _PERSON_TERMS
-        for f in _person_forms(term)
-    )
-
-
-def _drop_phantom_people(tags: list, vision: str) -> list:
-    """Remove person-type tags not supported by a word-boundary match in the vision text."""
-    vision_lower = vision.lower()
-    result = []
-    for tag in tags:
-        if tag not in _PERSON_TERMS:
-            result.append(tag)
-            continue
-        if any(re.search(r"\b" + re.escape(f) + r"\b", vision_lower) for f in _person_forms(tag)):
-            result.append(tag)
-    return result
-
-
-def _vision_as_desc(vision: str) -> str:
-    """Strip common opener phrases from a vision description for use as a fallback."""
-    text = _VISION_OPENER.sub("", vision).strip()
-    return text[0].upper() + text[1:] if text else vision
-
-
-def _fix_phantom_desc(description: str, vision: str) -> str:
-    """Remove sentences that introduce person terms absent from the vision description.
-
-    If vision already mentions any person, the synthesis description is trusted as-is.
-    If vision has no people, any sentence mentioning a person is a phantom and is dropped.
-    Falls back to a cleaned vision description if all sentences were phantom.
+    The model is told this too, but it is enforced here. People and places have their
+    own fields; a tag that repeats one of them (or one part of the place, such as the
+    city) is dropped. `max_words` is set for model output only: it also drops over-long
+    phrases and category names.
     """
-    if not description or _has_person(vision):
-        return description
-    sentences = re.split(r"(?<=[.!?])\s+", description.strip())
-    clean = [s for s in sentences if not _has_person(s)]
-    return " ".join(clean) if clean else _vision_as_desc(vision)
+    taken = {p.casefold() for p in people or []}
+    place_words: set[str] = set()
+    if place:
+        taken |= {place.casefold(), *(seg.strip().casefold() for seg in place.split(","))}
+        # also catches recombinations such as "prague national theatre"
+        place_words = set(place.casefold().replace(",", " ").split())
+    clean: list[str] = []
+    for item in tags or []:
+        # some answers pack every tag into one comma-separated string
+        for tag in str(item).split(","):
+            tag = " ".join(tag.strip().strip("*`_.#").lower().split())
+            if not tag or tag in clean or tag in taken:
+                continue
+            if place_words and set(tag.split()) <= place_words:
+                continue
+            # model output only: no over-long phrases, no category names posing as tags
+            if max_words and (len(tag.split()) > max_words or tag in VALID_CATEGORIES):
+                continue
+            clean.append(tag)
+    return clean
+
+
+def people_mentioned(text: str, known_people: list[str]) -> list[str]:
+    """People from the roll whose name appears in the photographer's own words.
+
+    Decided here rather than by the model, which tends to add everyone on the list.
+    A full name always counts; a first name counts when only one person has it.
+    "ines' birthday" and "Ines's" match "Ines".
+    """
+    words = set(re.findall(r"[^\W\d_]+", text.casefold()))
+    firsts = [p.split()[0].casefold() for p in known_people if p.split()]
+    found = []
+    for person in known_people:
+        parts = person.casefold().split()
+        if not parts:
+            continue
+        full = re.search(r"(?<!\w)" + re.escape(person.casefold()) + r"(?!\w)", text.casefold())
+        first_only = firsts.count(parts[0]) == 1 and (
+            parts[0] in words or parts[0] + "s" in words and parts[0].endswith("s") is False
+        )
+        if full or first_only:
+            found.append(person)
+    return found
+
+
+def _parse_answer(raw: str) -> dict:
+    """Decode a JSON answer and normalise description and category."""
+    try:
+        answer = json.loads(raw)
+        description = " ".join(str(answer["description"]).split())
+    except (ValueError, KeyError, TypeError) as e:
+        raise RuntimeError(f"model returned an unusable answer: {raw[:120]!r}") from e
+    if not description:
+        raise RuntimeError("model returned an empty answer (no description)")
+    category = str(answer.get("category", "")).strip().lower()
+    return {
+        **answer,
+        "description": description,
+        "category": category if category in VALID_CATEGORIES else "other",
+    }
 
 
 # ── Main pipeline ─────────────────────────────────────────────────────────────
@@ -474,78 +434,64 @@ def analyze_image(
     roll: dict,
     verbose: bool,
 ) -> dict:
+    """Describe one frame: a single call that returns description, tags and category.
+
+    `text_model` and `roll` are unused here (the text model only writes the roll summary);
+    they stay in the signature so callers need not care.
+    """
     b64 = _load_image_b64(path)
 
-    visual_desc = None
-    last_problem = ""
-    for attempt, (v_prompt, v_opts) in enumerate(_VISION_ATTEMPTS, 1):
+    answer = None
+    problem = ""
+    for attempt, (prompt, options) in enumerate(_ANALYZE_ATTEMPTS, 1):
         try:
-            result = _call_vision(b64, vision_model, v_prompt, VISION_SYSTEM, v_opts)
-        except Exception as e:
-            last_problem = str(e)
-            # An unreachable server or missing model won't fix itself — fail fast.
-            if "empty answer" not in last_problem:
-                raise RuntimeError(f"vision stage failed (attempt {attempt}): {e}") from e
-            print(f"    [vision] empty answer on attempt {attempt}")
+            raw = _generate(vision_model, prompt, ANALYZE_SYSTEM, options,
+                            images=[b64], schema=_ANALYZE_SCHEMA)
+            candidate = _parse_answer(raw)
+        except RuntimeError as e:
+            problem = str(e)
+            # An unreachable server or a missing model won't fix itself — fail fast.
+            if "empty answer" not in problem and "unusable answer" not in problem:
+                raise RuntimeError(f"analysis failed (attempt {attempt}): {e}") from e
+            print(f"    [model] {problem} — attempt {attempt}")
             continue
-        if not _is_repetitive(result):
-            if attempt > 1:
-                print(f"    [vision] succeeded on attempt {attempt}")
-            visual_desc = result
-            break
-        last_problem = "model produced repetitive output"
-        print(f"    [vision] loop on attempt {attempt}")
+        if _is_repetitive(candidate["description"]):
+            problem = "model produced repetitive output"
+            print(f"    [model] loop on attempt {attempt}")
+            continue
+        answer = candidate
+        break
 
-    if visual_desc is None:
+    if answer is None:
         # No sidecar is written for a failed frame, so it stays "untagged" and is retried next run.
         raise RuntimeError(
-            f"vision stage gave no usable description after {len(_VISION_ATTEMPTS)} attempts "
-            f"({last_problem})"
+            f"no usable description after {len(_ANALYZE_ATTEMPTS)} attempts ({problem})"
         )
 
-    if verbose:
-        print(f"    [vision] {visual_desc}")
-
-    synthesis_prompt = SYNTHESIS_PROMPT_TMPL.format(
-        vision_section=f"Visual description: {visual_desc}",
-    )
-
-    meta: dict = {}
-    for attempt in (1, 2):
-        try:
-            raw_synthesis = _call_text(text_model, synthesis_prompt, SYNTHESIS_SYSTEM, _SYNTH_OPTS)
-        except Exception as e:
-            if attempt == 2 or "empty answer" not in str(e):
-                raise RuntimeError(f"synthesis stage failed: {e}") from e
-            continue
-        meta = parse_synthesis(raw_synthesis)
-        if meta.get("description"):
-            break
-        print(f"    [synthesis] no description in answer on attempt {attempt}")
-
-    meta["tags"]        = _drop_phantom_people(meta.get("tags", []), visual_desc)
-    meta["description"] = _fix_phantom_desc(meta.get("description", ""), visual_desc)
-    if not meta["description"]:
-        raise RuntimeError("synthesis stage produced no description")
-
-    if verbose:
-        print(f"    [category]    {meta.get('category', '?')}")
-        print(f"    [tags]        {', '.join(meta.get('tags', []))}")
-        print(f"    [description] {meta.get('description', '')}")
-
-    return {
-        "category": meta.get("category", "other"),
-        "tags": meta.get("tags", []),
-        "description": meta.get("description", ""),
-        "vision_raw": visual_desc,
+    meta = {
+        "category": answer["category"],
+        "tags": sanitize_tags(answer.get("tags"), max_words=_MAX_TAG_WORDS),
+        "description": answer["description"],
+        # The model's own words, kept unchanged when the description is edited later
+        "vision_raw": answer["description"],
     }
+    if verbose:
+        print(f"    [category]    {meta['category']}")
+        print(f"    [tags]        {', '.join(meta['tags'])}")
+        print(f"    [description] {meta['description']}")
+    return meta
 
 
 # ── Refinement ────────────────────────────────────────────────────────────────
 
 
 def refine_frame(
-    path: Path, meta: dict, note: str | None, model: str, known_places: list[str] | None = None
+    path: Path,
+    meta: dict,
+    note: str | None,
+    model: str,
+    known_places: list[str] | None = None,
+    known_people: list[str] | None = None,
 ) -> dict:
     """Rewrite a frame's metadata so it reflects facts stated by the photographer.
 
@@ -553,7 +499,8 @@ def refine_frame(
     notes already stored with the frame and all of them are given to the model, so
     facts accumulate. Pass note=None to re-apply the stored notes, e.g. after a re-tag.
     `known_places` are the roll's locations ("Athens, Greece"), so that a place the model
-    derives from a note ends in the spelling already in use.
+    derives from a note ends in the spelling already in use. `known_people` are the roll's
+    subjects: anyone of them the facts mention is marked as being in the frame.
     Returns a new meta dict; raises RuntimeError if the model gives no usable answer.
     """
     notes = list(meta.get("notes") or [])
@@ -562,47 +509,41 @@ def refine_frame(
     if not notes:
         return dict(meta)
 
+    context = ""
+    if known_places:
+        context += "\nKnown places of this roll: " + "; ".join(known_places)
+    # known_people is deliberately not shown to the model: given the list, it writes
+    # everyone on it into the description. Who is mentioned is decided in code below.
     prompt = REFINE_PROMPT_TMPL.format(
         category=meta.get("category", "other"),
         tags=", ".join(meta.get("tags", [])) or "(none)",
         description=meta.get("description", "") or "(none)",
         notes="\n".join(f"- {n}" for n in notes),
-        known_places=(
-            "\nKnown places of this roll: " + "; ".join(known_places) + "\n"
-            if known_places else ""
-        ),
+        context=context + "\n" if context else "",
+        description_rules=_DESCRIPTION_RULES,
+        tag_rules=_TAG_RULES,
+        category_rules=_CATEGORY_RULES,
     )
-    raw = _generate(
-        model, prompt, REFINE_SYSTEM, _REFINE_OPTS,
-        images=[_load_image_b64(path)], schema=_REFINE_SCHEMA,
-    )
-    try:
-        answer = json.loads(raw)
-        description = str(answer["description"]).strip()
-    except (ValueError, KeyError, TypeError) as e:
-        raise RuntimeError(f"model returned an unusable answer: {raw[:120]!r}") from e
-    if not description:
-        raise RuntimeError("model returned an empty description")
+    raw = _generate(model, prompt, REFINE_SYSTEM, _REFINE_OPTS,
+                    images=[_load_image_b64(path)], schema=_REFINE_SCHEMA)
+    answer = _parse_answer(raw)
 
-    # Capitalization is kept (proper names), duplicates are dropped regardless of case
-    # (some answers pack every tag into one comma-separated string — split those)
-    tags: list[str] = []
-    for item in answer.get("tags") or []:
-        for t in str(item).split(","):
-            t = t.strip()
-            if t and t.casefold() not in {x.casefold() for x in tags}:
-                tags.append(t)
-    category = str(answer.get("category", "")).strip().lower()
-    place = complete_place(
+    # The photographer's own choice of place wins over one derived from a note
+    place = meta.get("place") or complete_place(
         normalize_place(str(answer.get("place") or ""), known_places), known_places or []
     )
+    people = list(dict.fromkeys(
+        [*(meta.get("people") or []), *people_mentioned(" ".join(notes), known_people or [])]
+    ))
+
+    tags = sanitize_tags(answer.get("tags"), people, place, max_words=_MAX_TAG_WORDS)
     return {
         **meta,
-        "description": description,
-        "tags": tags or meta.get("tags", []),
-        "category": category if category in VALID_CATEGORIES else meta.get("category", "other"),
-        # The photographer's own choice of place wins over one derived from a note
-        "place": meta.get("place") or place,
+        "description": answer["description"],
+        "tags": tags or sanitize_tags(meta.get("tags"), people, place),
+        "category": answer["category"],
+        "place": place,
+        "people": people,
         "notes": notes,
     }
 

@@ -15,7 +15,7 @@ from pathlib import Path
 from .html import write_roll_html
 from .roll import IMAGE_EXTS, _split_list_field
 from .sidecar import _read_xmp_meta, write_xmp
-from .tagger import analyze_image, refine_frame, write_roll_summary
+from .tagger import analyze_image, refine_frame, sanitize_tags, write_roll_summary
 
 
 @dataclass
@@ -131,7 +131,9 @@ def tag_images(
             meta.update({k: kept[k] for k in ("people", "place", "notes") if kept.get(k)})
             if meta.get("notes"):
                 meta = refine_frame(img, meta, None, vision_model,
-                                    _split_list_field(roll.get("location", "")))
+                                    _split_list_field(roll.get("location", "")),
+                                    _split_list_field(roll.get("subjects", "")))
+            meta["tags"] = sanitize_tags(meta["tags"], meta.get("people"), meta.get("place", ""))
             if not dry_run:
                 write_xmp(img, meta, roll)
             result = FrameResult(img, meta)

@@ -17,12 +17,12 @@
 - [ ] README screenshots still show the Streamlit UI — retake
 
 ### 3. Keep tags, people and places apart
-- [ ] Tags are generic keywords only, always lowercase — enforced in code, not left to the model
-- [ ] Seen again in testing: refine put "National Theatre", "Prague" and "Czechia" into tags
-- [ ] Sanitation step after every model answer and every refine: lowercase, de-duplicate, and drop any tag that is a person on the frame or part of its place (seen: "Krefeld, Germany", "Berlin, Germany" and "ines" ending up in tags)
-- [ ] Named things (Hamburger Bahnhof, Varvakios Market, an exhibition) go in the place's local part and the description, where capitals are kept — not in tags
-- [ ] Refine: when a fact names someone from the roll's subjects ("celebrating ines birthday"), mark that person on the frame instead of adding a tag
-- [ ] Do this together with the single structured call for tagging (see Improvements): both define what the model returns
+- [x] Tags are generic keywords only, always lowercase — enforced in code, not left to the model
+- [x] Seen again in testing: refine put "National Theatre", "Prague" and "Czechia" into tags
+- [x] Sanitation step after every model answer and every refine: lowercase, de-duplicate, and drop any tag that is a person on the frame or part of its place (seen: "Krefeld, Germany", "Berlin, Germany" and "ines" ending up in tags)
+- [x] Named things (Hamburger Bahnhof, Varvakios Market, an exhibition) go in the place's local part and the description, where capitals are kept — not in tags
+- [x] Refine: when a fact names someone from the roll's subjects ("celebrating ines birthday"), mark that person on the frame instead of adding a tag
+- [x] Do this together with the single structured call for tagging (see Improvements): both define what the model returns
 
 ### 4. Settings menu
 - [ ] Move vision/text model selection out of the tagging step into a small settings overlay, with a short explanation of what each model does
@@ -70,7 +70,7 @@
 ## Improvements
 
 - [x] The review process is very slow (saving and moving on to the next). NiceGUI app: one frame at a time, autosave, arrow keys.
-- [ ] Replace the two-stage vision + synthesis calls with one structured call (faster; fixes wordy tags and wrong categories such as cat = portrait)
+- [x] Replace the two-stage vision + synthesis calls with one structured call (about 5.5 s per frame instead of 9; short lowercase tags; animals are no longer "portrait")
 - [ ] Option to re-process only frames with empty descriptions
 - [x] Remove the Streamlit app once the NiceGUI app has proven itself
 - [ ] Add tests (parser, roll.yaml and XMP round-trips)

@@ -21,7 +21,7 @@ from nicegui import run, ui
 from processor.pipeline import tagged_pairs
 from processor.roll import complete_place, normalize_name, normalize_place, place_region
 from processor.sidecar import write_xmp
-from processor.tagger import VALID_CATEGORIES, ensure_ollama, refine_frame
+from processor.tagger import VALID_CATEGORIES, ensure_ollama, refine_frame, sanitize_tags
 
 from .files import thumb_url
 from .state import state
@@ -115,7 +115,7 @@ class ReviewView:
                 .props("flat dense").tooltip("Undo the last refine")
         self.notes_label = ui.label().classes("text-xs text-grey-6 truncate w-full h-4 -mt-1")
 
-        self.tags = ui.input_chips("Tags (type and press Enter)", new_value_mode="add-unique",
+        self.tags = ui.input_chips("Tags — lowercase keywords", new_value_mode="add-unique",
                                    on_change=self._changed_now) \
             .props("outlined").classes("w-full box-fixed").style("--box-h: 5.5rem")
 
@@ -243,9 +243,16 @@ class ReviewView:
 
     def _write(self, i: int, meta: dict) -> None:
         img = self.pairs[i][0]
+        # Tags stay generic keywords: lowercase, and never a person or place of the frame
+        meta = {**meta, "tags": sanitize_tags(meta.get("tags"), meta.get("people"),
+                                              meta.get("place", ""))}
         write_xmp(img, meta, state.roll)
         self.pairs[i] = (img, meta)
         state.edited_since_summary = True
+        if i == self.index and meta["tags"] != list(self.tags.value or []):
+            was_loading, self._loading = self._loading, True
+            self.tags.set_value(list(meta["tags"]))
+            self._loading = was_loading
         if not self._refining:
             self.status.set_text(f"Saved {datetime.now():%H:%M:%S}")
 
@@ -273,8 +280,7 @@ class ReviewView:
             **meta,
             "category": self.category.value or "other",
             "description": (self.description.value or "").strip(),
-            # Kept as typed: proper names in tags need their capitals
-            "tags": [t.strip() for t in (self.tags.value or []) if t.strip()],
+            "tags": sanitize_tags(self.tags.value, meta.get("people"), meta.get("place", "")),
         }
         if all(edited[k] == meta.get(k) for k in ("category", "description", "tags")):
             return
@@ -355,7 +361,8 @@ class ReviewView:
                 self.status.set_text(f"Refining {n} / {len(targets)}…")
                 try:
                     new = await run.io_bound(refine_frame, img, meta, note, state.vision_model,
-                                             state.roll_values("location"))
+                                             state.roll_values("location"),
+                                             state.roll_values("subjects"))
                 except Exception as e:
                     failed.append(f"{img.name}: {e}")
                     continue
