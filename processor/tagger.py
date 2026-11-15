@@ -13,7 +13,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from .roll import _split_list_field, GENERATED_MARKER
+from .roll import _split_list_field, complete_place, normalize_place, GENERATED_MARKER
 from .sidecar import _load_image_b64
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -111,6 +111,54 @@ Anchor the location to the roll metadata — do not infer or add location detail
 Describe only what is directly stated in the frame descriptions — do not speculate. \
 Do not describe mood, atmosphere, or emotional qualities. \
 Do not mention film, camera, equipment, or technical qualities."""
+
+REFINE_SYSTEM = (
+    "You are a metadata assistant for a photographer's archive. "
+    "You update a photo's metadata using facts the photographer gives you. "
+    "You answer with JSON only."
+)
+
+REFINE_PROMPT_TMPL = """\
+Current metadata of the attached photograph:
+
+CATEGORY: {category}
+TAGS: {tags}
+DESCRIPTION: {description}
+
+The photographer, who took this photo, states these facts about it:
+{notes}
+{known_places}
+Rewrite the metadata so that it reflects these facts. Rules:
+- The photographer's facts are true, even where the image alone would not prove them. \
+Where they name something the current metadata describes generically, use the name \
+(for example "an ancient temple" becomes "the Parthenon").
+- Keep everything else that is still accurate. Do not add details that are neither \
+visible in the image nor stated by the photographer.
+- description: 2-3 factual sentences. No "The image shows" phrasing, no mood or atmosphere, \
+no mention of film, grain or equipment.
+- Names are often typed casually ("parthenon", "st nicholas"). Never copy that as typed: \
+write every proper name with its correct spelling and capitalization ("Parthenon", \
+"St. Nicholas Church"), in the description and in the tags alike. Fix existing tags too.
+- tags: up to 12 keywords; generic keywords in lowercase ("temple", "columns"), proper \
+names capitalized ("Parthenon", "Athens"); include the specific names the photographer \
+gave and drop generic tags they make redundant.
+- category: exactly one of landscape, portrait, street, architecture, nature, abstract, other.
+- place: where the photo was taken, only if the photographer's facts name a place; \
+otherwise an empty string. Never guess a place. Write it most specific first, comma \
+separated, as "Local place, City, Country" or "City, Country" (for example \
+"Parthenon, Athens, Greece"). If a known place of this roll fits, end with exactly that."""
+
+_REFINE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "description": {"type": "string"},
+        "tags": {"type": "array", "items": {"type": "string"}},
+        "category": {"type": "string", "enum": sorted(VALID_CATEGORIES)},
+        "place": {"type": "string"},
+    },
+    "required": ["description", "tags", "category", "place"],
+}
+_REFINE_OPTS = {"num_predict": 500}
 
 # Three escalating attempts: full prompt → short fallback → very short fallback.
 # Budgets are generous on purpose: a truncated answer is worse than a slow one.
@@ -244,6 +292,7 @@ def _generate(
     options: dict | None = None,
     images: list[str] | None = None,
     timeout: int = 300,
+    schema: dict | None = None,
 ) -> str:
     """One non-streaming completion. Raises RuntimeError on an empty or cut-off answer.
 
@@ -262,6 +311,8 @@ def _generate(
         body["images"] = images
     if options:
         body["options"] = options
+    if schema:
+        body["format"] = schema  # constrains the answer to JSON matching the schema
     try:
         data = _post("/api/generate", body, timeout)
     except RuntimeError as e:
@@ -490,6 +541,70 @@ def analyze_image(
     }
 
 
+# ── Refinement ────────────────────────────────────────────────────────────────
+
+
+def refine_frame(
+    path: Path, meta: dict, note: str | None, model: str, known_places: list[str] | None = None
+) -> dict:
+    """Rewrite a frame's metadata so it reflects facts stated by the photographer.
+
+    `note` is a new fact ("this is the Parthenon in Athens"); it is added to the
+    notes already stored with the frame and all of them are given to the model, so
+    facts accumulate. Pass note=None to re-apply the stored notes, e.g. after a re-tag.
+    `known_places` are the roll's locations ("Athens, Greece"), so that a place the model
+    derives from a note ends in the spelling already in use.
+    Returns a new meta dict; raises RuntimeError if the model gives no usable answer.
+    """
+    notes = list(meta.get("notes") or [])
+    if note and note.strip() and note.strip() not in notes:
+        notes.append(note.strip())
+    if not notes:
+        return dict(meta)
+
+    prompt = REFINE_PROMPT_TMPL.format(
+        category=meta.get("category", "other"),
+        tags=", ".join(meta.get("tags", [])) or "(none)",
+        description=meta.get("description", "") or "(none)",
+        notes="\n".join(f"- {n}" for n in notes),
+        known_places=(
+            "\nKnown places of this roll: " + "; ".join(known_places) + "\n"
+            if known_places else ""
+        ),
+    )
+    raw = _generate(
+        model, prompt, REFINE_SYSTEM, _REFINE_OPTS,
+        images=[_load_image_b64(path)], schema=_REFINE_SCHEMA,
+    )
+    try:
+        answer = json.loads(raw)
+        description = str(answer["description"]).strip()
+    except (ValueError, KeyError, TypeError) as e:
+        raise RuntimeError(f"model returned an unusable answer: {raw[:120]!r}") from e
+    if not description:
+        raise RuntimeError("model returned an empty description")
+
+    # Capitalization is kept (proper names), duplicates are dropped regardless of case
+    tags: list[str] = []
+    for t in answer.get("tags") or []:
+        t = str(t).strip()
+        if t and t.casefold() not in {x.casefold() for x in tags}:
+            tags.append(t)
+    category = str(answer.get("category", "")).strip().lower()
+    place = complete_place(
+        normalize_place(str(answer.get("place") or ""), known_places), known_places or []
+    )
+    return {
+        **meta,
+        "description": description,
+        "tags": tags or meta.get("tags", []),
+        "category": category if category in VALID_CATEGORIES else meta.get("category", "other"),
+        # The photographer's own choice of place wins over one derived from a note
+        "place": meta.get("place") or place,
+        "notes": notes,
+    }
+
+
 # ── Roll summary ──────────────────────────────────────────────────────────────
 
 
@@ -504,7 +619,7 @@ def _generate_roll_prose(all_meta: list, roll: dict, text_model: str) -> str:
         location=", ".join(_split_list_field(roll.get("location", ""))) or "not specified",
         subjects=", ".join(_split_list_field(roll.get("subjects", ""))) or "not specified",
         date=roll.get("date", "not specified"),
-        descriptions="\n".join(f"- {d}" for d in descs[:20]),
+        descriptions="\n".join(f"- {d}" for d in descs[:40]),
     )
     try:
         return _call_text(text_model, prompt, ROLL_SUMMARY_SYSTEM, _SUMMARY_OPTS)

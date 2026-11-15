@@ -68,7 +68,12 @@ def write_roll_html(folder: Path, pairs: list, roll: dict) -> None:
 
     cards = []
     for img_path, meta in pairs:
-        tags_str = ", ".join(meta.get("tags", []))
+        # People and the frame's place lead the tag list, so they are searchable and
+        # show up first in the lightbox.
+        place = meta.get("place", "")
+        tags_str = ", ".join(
+            [*meta.get("people", []), *([place] if place else []), *meta.get("tags", [])]
+        )
         search_data = " ".join([
             img_path.name,
             meta.get("description", ""),

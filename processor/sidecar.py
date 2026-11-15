@@ -77,10 +77,30 @@ def _xe_decode(s: str) -> str:
     )
 
 
-def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
-    tags_xml = "\n".join(
-        f"      <rdf:li>{_xe(t)}</rdf:li>" for t in meta.get("tags", [])
+def _list_field(tag: str, items: list, container: str = "Bag") -> str:
+    """An rdf:Bag (unordered) or rdf:Seq (ordered) property; nothing if the list is empty."""
+    if not items:
+        return ""
+    lis = "\n".join(f"          <rdf:li>{_xe(i)}</rdf:li>" for i in items)
+    return (
+        f"      <{tag}>\n        <rdf:{container}>\n{lis}\n"
+        f"        </rdf:{container}>\n      </{tag}>\n"
     )
+
+
+def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
+    """Write the sidecar for one frame.
+
+    Besides the model's output, meta may carry what the photographer added in review:
+      people — names of the people in this frame
+      place  — where this frame was taken (overrides the roll's location list)
+      notes  — facts told to the model ("this is the Parthenon"), kept so a re-tag can reuse them
+    Names and the place are also written as keywords so that other software finds them.
+    """
+    people = meta.get("people") or []
+    place = meta.get("place") or ""
+    keywords = list(dict.fromkeys([*meta.get("tags", []), *people, *([place] if place else [])]))
+    tags_xml = "\n".join(f"      <rdf:li>{_xe(t)}</rdf:li>" for t in keywords)
 
     def field(tag: str, value: str) -> str:
         return f"      <{tag}>{_xe(value)}</{tag}>\n" if value else ""
@@ -93,6 +113,7 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
         '      xmlns:dc="http://purl.org/dc/elements/1.1/"\n'
         '      xmlns:xmp="http://ns.adobe.com/xap/1.0/"\n'
         '      xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"\n'
+        '      xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"\n'
         '      xmlns:film="http://ns.contact.local/1.0/">\n'
         + field("dc:description", meta.get("description", ""))
         + "      <dc:subject>\n"
@@ -101,7 +122,10 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
         + "        </rdf:Bag>\n"
         + "      </dc:subject>\n"
         + field("xmp:CreateDate", roll.get("date", ""))
-        + field("Iptc4xmpCore:Location", roll.get("location", ""))
+        + field("Iptc4xmpCore:Location", place or roll.get("location", ""))
+        + _list_field("Iptc4xmpExt:PersonInImage", people)
+        + field("film:place", place)
+        + _list_field("film:userNotes", meta.get("notes") or [], "Seq")
         + field("film:stock", roll.get("film", ""))
         + field("film:camera", roll.get("camera", ""))
         + field("film:lens", roll.get("lens", ""))
@@ -120,17 +144,42 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
     return xmp_path
 
 
+_EMPTY_META = {
+    "description": "", "category": "other", "tags": [], "vision_raw": "",
+    "people": [], "place": "", "notes": [],
+}
+
+
+def _read_list(content: str, tag: str) -> list:
+    block = re.search(rf"<{tag}>(.*?)</{tag}>", content, re.DOTALL)
+    if not block:
+        return []
+    return [_xe_decode(i) for i in re.findall(r"<rdf:li>([^<]+)</rdf:li>", block.group(1))]
+
+
 def _read_xmp_meta(xmp_path: Path) -> dict:
-    """Extract description, tags, and category from an XMP sidecar we wrote."""
+    """Read back everything write_xmp stores about a frame."""
     try:
         content = xmp_path.read_text(encoding="utf-8")
     except Exception:
-        return {"description": "", "category": "other", "tags": []}
-    desc_m = re.search(r"<dc:description>(.*?)</dc:description>", content, re.DOTALL)
-    cat_m  = re.search(r"<film:category>([^<]*)</film:category>", content)
-    tags   = re.findall(r"<rdf:li>([^<]+)</rdf:li>", content)
+        return {**_EMPTY_META, "tags": [], "people": [], "notes": []}
+
+    def text(tag: str) -> str:
+        m = re.search(rf"<{tag}>(.*?)</{tag}>", content, re.DOTALL)
+        return _xe_decode(m.group(1).strip()) if m else ""
+
+    people = _read_list(content, "Iptc4xmpExt:PersonInImage")
+    place = text("film:place")
+    # Names and the place are mirrored into the keywords on write; take them out again
+    # so that `tags` holds only the descriptive tags.
+    mirrored = {*people, place}
     return {
-        "description": _xe_decode(desc_m.group(1).strip()) if desc_m else "",
-        "category":    cat_m.group(1).strip() if cat_m else "other",
-        "tags":        [_xe_decode(t) for t in tags],
+        "description": text("dc:description"),
+        "category":    text("film:category") or "other",
+        "tags":        [t for t in _read_list(content, "dc:subject") if t not in mirrored],
+        # Carried along so that editing a frame doesn't drop the model's original text
+        "vision_raw":  text("film:visionRaw"),
+        "people":      people,
+        "place":       place,
+        "notes":       _read_list(content, "film:userNotes"),
     }

@@ -53,6 +53,58 @@ def _join_list_field(items: list[str]) -> str:
     return " | ".join(items)
 
 
+# ── Places ────────────────────────────────────────────────────────────────────
+#
+# Places are written most specific first, comma separated:
+#     City, Country                e.g.  Athens, Greece
+#     Local place, City, Country   e.g.  Parthenon, Athens, Greece
+# The roll's location list holds the "City, Country" level; a frame may add the
+# local place in front.
+
+
+def _tidy_segment(segment: str) -> str:
+    segment = " ".join(segment.split())
+    # Typed all in lowercase: capitalize each word. Anything with capitals in it
+    # ("USA", "Malá Strana", "Museum of Modern Art") is taken as the user wrote it.
+    if segment and segment == segment.lower():
+        segment = " ".join(w[:1].upper() + w[1:] for w in segment.split(" "))
+    return segment
+
+
+def normalize_place(text: str, known: list[str] | None = None) -> str:
+    """Bring a place into the standard pattern and reuse an existing spelling if there is one.
+
+    `known` are places already in use (roll locations, earlier frames, history). A place
+    that differs from one of them only in case or spacing becomes that one, so
+    "athens,greece" never ends up next to "Athens, Greece".
+    """
+    place = ", ".join(seg for seg in (_tidy_segment(s) for s in (text or "").split(",")) if seg)
+    for existing in known or []:
+        if existing.casefold() == place.casefold():
+            return existing
+    return place
+
+
+def place_region(place: str) -> str:
+    """The "City, Country" part of a place — what belongs in the roll's location list."""
+    segments = [s.strip() for s in place.split(",") if s.strip()]
+    return ", ".join(segments[-2:])
+
+
+def complete_place(place: str, roll_locations: list[str]) -> str:
+    """Append the roll's location to a bare local place when that is unambiguous.
+
+    "Parthenon" on a roll whose only location is "Athens, Greece" becomes
+    "Parthenon, Athens, Greece". With several roll locations, or a place that already
+    has a region, nothing is guessed.
+    """
+    if place and "," not in place and len(roll_locations) == 1:
+        region = roll_locations[0]
+        if place.casefold() not in {s.strip().casefold() for s in region.split(",")}:
+            return f"{place}, {region}"
+    return place
+
+
 # ── Folder naming ─────────────────────────────────────────────────────────────
 
 

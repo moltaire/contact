@@ -4,14 +4,16 @@ version = "0.1.0"
 dependencies = [
     "streamlit>=1.35",
     "pillow",
+    "nicegui>=4.0.0",
 ]
 
 [project.scripts]
 contact = "contact:main"
 contact-ui = "contact_ui:run"
+contact-gui = "contact_gui.main:run_app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["processor", "contact.py", "contact_ui.py", "app.py"]
+packages = ["processor", "contact_gui", "contact.py", "contact_ui.py", "app.py"]
 
 [build-system]
 requires = ["hatchling"]

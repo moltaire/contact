@@ -20,13 +20,28 @@ Usage:
 import argparse
 from pathlib import Path
 
+from processor.pipeline import Event, is_tagged, list_images, tag_images
 from processor.roll import IMAGE_EXTS, load_roll_yaml, build_folder_name, run_roll_setup
-from processor.tagger import analyze_image, write_roll_summary, ensure_ollama, default_vision_model
-from processor.sidecar import write_xmp, _read_xmp_meta
-from processor.html import write_roll_html
+from processor.tagger import ensure_ollama, default_vision_model
 
 
 # ── Main pipeline ─────────────────────────────────────────────────────────────
+
+
+def _print_event(event: Event, dry_run: bool) -> None:
+    if event.kind == "frame_start":
+        print(f"  [{event.index}/{event.total}] {event.image.name}")
+    elif event.kind == "frame_done":
+        result = event.result
+        if not result.ok:
+            print(f"  ✗ error: {result.error}\n")
+        elif dry_run:
+            print(f"    category: {result.meta['category']}")
+            print(f"    tags:     {', '.join(result.meta['tags'])}")
+            print(f"    desc:     {result.meta['description']}")
+            print(f"    → {result.image.stem}.xmp  [dry-run, not written]\n")
+        else:
+            print(f"    → {result.image.stem}.xmp\n")
 
 
 def process_folder(folder: Path, args, vision_model: str, text_model: str) -> None:
@@ -41,13 +56,10 @@ def process_folder(folder: Path, args, vision_model: str, text_model: str) -> No
     else:
         print("No roll.yaml found — proceeding with content analysis only.\n")
 
-    all_images = sorted(
-        f for f in folder.iterdir()
-        if f.is_file() and f.suffix.lower() in IMAGE_EXTS
-    )
+    all_images = list_images(folder)
 
     if not args.force:
-        images = [f for f in all_images if not f.with_suffix(".xmp").exists()]
+        images = [f for f in all_images if not is_tagged(f)]
         skipped = len(all_images) - len(images)
         if skipped:
             print(f"Skipping {skipped} already-tagged image(s). Use --force to re-tag.\n")
@@ -59,36 +71,14 @@ def process_folder(folder: Path, args, vision_model: str, text_model: str) -> No
         if not args.rename_folder:
             return
 
-    total = len(images)
-    processed_meta = []
-    for n, img in enumerate(images, 1):
-        print(f"  [{n}/{total}] {img.name}")
-        try:
-            meta = analyze_image(img, vision_model, text_model, roll, args.verbose)
-            if args.dry_run:
-                print(f"    category: {meta['category']}")
-                print(f"    tags:     {', '.join(meta['tags'])}")
-                print(f"    desc:     {meta['description']}")
-                print(f"    → {img.stem}.xmp  [dry-run, not written]\n")
-            else:
-                xmp_path = write_xmp(img, meta, roll)
-                print(f"    → {xmp_path.name}\n")
-                processed_meta.append(meta)
-        except Exception as e:
-            print(f"  ✗ error: {e}\n")
-
-    if processed_meta:
-        write_roll_summary(folder, processed_meta, roll, vision_model, text_model)
-
-    # Build HTML from every image that has an XMP sidecar (includes prior runs)
-    html_pairs = [
-        (img, _read_xmp_meta(img.with_suffix(".xmp")))
-        for img in sorted(f for f in folder.iterdir()
-                          if f.is_file() and f.suffix.lower() in IMAGE_EXTS)
-        if img.with_suffix(".xmp").exists()
-    ]
-    if html_pairs:
-        write_roll_html(folder, html_pairs, roll)
+    run = tag_images(
+        folder, images, vision_model, text_model, roll,
+        on_event=lambda e: _print_event(e, args.dry_run),
+        verbose=args.verbose,
+        dry_run=args.dry_run,
+    )
+    if run.failed:
+        print(f"{len(run.failed)} image(s) failed and were left untagged. Run again to retry them.\n")
 
     if args.rename_folder:
         new_name = build_folder_name(roll)

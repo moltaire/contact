@@ -23,9 +23,31 @@ ollama pull gemma4:e4b
 uv tool install .
 ```
 
-This installs two commands: `contact` (CLI) and `contact-ui` (Streamlit app).
+This installs three commands: `contact` (CLI), `contact-gui` (new NiceGUI app) and `contact-ui` (older Streamlit app).
 
 ---
+
+## NiceGUI app (new)
+
+```bash
+contact-gui
+# or with a folder pre-loaded:
+contact-gui --folder ~/scans/tuscany/
+```
+
+Same five steps as the Streamlit UI — folder, roll info, tagging, review, contact sheet — with a few differences:
+
+- Tagging runs in the background: you can switch tabs, reload or close the browser and the run carries on. Failed frames are listed and stay untagged so they can be retried.
+- Review shows one frame at a time. Edits are saved automatically; use ← → or the filmstrip to move between frames.
+- The contact sheet step can rename the folder to the standard `date_label` pattern.
+- In review you can add what the model cannot know:
+  - **Tell the model a fact** ("this is the Parthenon in Athens") and it rewrites description, tags and category, with undo. Facts are stored with the frame and re-applied when it is re-tagged.
+  - **People:** toggle who is in the frame (keys 1–9). New names are added to the roll's subjects.
+  - **Place:** set where the frame was taken. New places are added to the roll's locations.
+  - ⌘/Ctrl-click or Shift-click frames in the filmstrip to apply any of these to several frames at once.
+- Dark theme by default; start with `--light` for the paper theme.
+
+The Streamlit UI below still works and will be removed once the new app has proven itself.
 
 ## Streamlit UI
 
