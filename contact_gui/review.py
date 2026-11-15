@@ -27,6 +27,9 @@ from .files import thumb_url
 from .state import state
 
 _SAVE_DELAY = 1.0  # seconds of quiet typing before a description is written to disk
+# Everything on the review screen that is not the frame: header, paddings, the hint line
+# and the filmstrip. The frame takes the rest of the window, so the screen fits exactly.
+_CHROME_HEIGHT = 250
 
 
 class ReviewView:
@@ -59,7 +62,7 @@ class ReviewView:
         # Fixed geometry: the image and the editing column have the same height and the
         # navigation sits on top, so nothing moves when a description or tag list is long.
         with ui.row().classes("w-full no-wrap gap-6 items-stretch") \
-                .style("height: calc(100vh - 290px); min-height: 590px"):
+                .style(f"height: calc(100vh - {_CHROME_HEIGHT}px); min-height: 560px"):
             self.image = ui.image().props("fit=contain").classes("w-3/5 h-full frame")
             with ui.column().classes("w-2/5 h-full gap-2 no-wrap overflow-auto"):
                 with ui.row().classes("w-full items-center no-wrap"):
@@ -79,31 +82,31 @@ class ReviewView:
                             "1–9 toggle people. People, place and facts also apply to frames "
                             "selected in the strip (⌘/Ctrl-click, Shift-click for a range)."
                         ).classes("text-sm max-w-xs")
-                # Navigation stays at the top and the fields stack up from the bottom edge
-                # of the frame; whatever height is left over becomes air below the navigation.
+                # Top edge: navigation. Bottom edge: place, level with the bottom of the
+                # frame. In between, two groups — the text (description, refine) and the
+                # labels (tags, people, landmarks, category, place) — with small gaps inside
+                # a group and the leftover height split evenly above each group.
                 # Every box has a fixed size and scrolls inside, so nothing ever moves.
-                ui.space()
                 self._build_fields()
 
-        with ui.row().classes("w-full items-center gap-2 mt-2"):
-            self.selection_label = ui.label().classes("text-xs text-grey-6")
-            ui.button("Select all", on_click=self._select_all).props("flat dense size=sm")
-            self.clear_button = ui.button("Clear selection", on_click=self._clear_selection) \
-                .props("flat dense size=sm")
-        with ui.row().classes("w-full no-wrap gap-3 p-2 strip"):
-            self.strip = [
-                ui.image(thumb_url(img, 160)).props("fit=cover")
-                .classes("w-24 h-20 shrink-0 cursor-pointer frame")
-                .on("click", lambda e, i=i: self._strip_click(i, e.args),
-                    ["shiftKey", "metaKey", "ctrlKey"])
-                for i, (img, _) in enumerate(self.pairs)
-            ]
+        with ui.column().classes("w-full gap-1 -mt-2"):
+            with ui.row().classes("w-full items-center gap-2"):
+                self.selection_label = ui.label().classes("text-xs text-grey-6")
+                ui.button("Select all", on_click=self._select_all).props("flat dense size=sm")
+                self.clear_button = ui.button("Clear selection", on_click=self._clear_selection) \
+                    .props("flat dense size=sm")
+            with ui.row().classes("w-full no-wrap gap-3 p-2 strip"):
+                self.strip = [
+                    ui.image(thumb_url(img, 160)).props("fit=cover")
+                    .classes("w-24 h-20 shrink-0 cursor-pointer frame")
+                    .on("click", lambda e, i=i: self._strip_click(i, e.args),
+                        ["shiftKey", "metaKey", "ctrlKey"])
+                    for i, (img, _) in enumerate(self.pairs)
+                ]
         self._show()
 
     def _build_fields(self) -> None:
-        self.category = ui.select(sorted(VALID_CATEGORIES), label="Category",
-                                  on_change=self._changed_now) \
-            .props("outlined dense").classes("w-full")
+        ui.space()
 
         # Five lines of text
         self.description = ui.textarea("Description", on_change=self._changed_typing) \
@@ -111,16 +114,20 @@ class ReviewView:
         self.description.on("blur", self.save)
 
         # Tell the model a fact and let it rewrite description, tags and category
-        with ui.column().classes("w-full gap-0"):
-            with ui.row().classes("w-full items-center no-wrap gap-2"):
-                self.note = ui.input(
-                    placeholder="Tell the model a fact, e.g. “this is the Parthenon”"
-                ).props("outlined dense").classes("grow")
-                self.note.on("keydown.enter", self._refine)
-                self.refine_button = ui.button("Refine", on_click=self._refine).props("outline")
-                self.undo_button = ui.button(icon="undo", on_click=self._undo_refine) \
-                    .props("flat dense").tooltip("Undo the last refine")
-            self.notes_label = ui.label().classes("text-xs text-grey-6 truncate w-full h-4 px-1")
+        with ui.row().classes("w-full items-center no-wrap gap-2"):
+            self.note = ui.input(
+                placeholder="Tell the model a fact, e.g. “this is the Parthenon”"
+            ).props("outlined dense").classes("grow")
+            self.note.on("keydown.enter", self._refine)
+            # Facts already given, without taking a line of their own
+            with ui.icon("format_list_bulleted", size="xs").classes("text-grey-6") \
+                    as self.notes_icon:
+                self.notes_tip = ui.tooltip("").classes("text-sm max-w-xs whitespace-pre-line")
+            self.refine_button = ui.button("Refine", on_click=self._refine).props("outline")
+            self.undo_button = ui.button(icon="undo", on_click=self._undo_refine) \
+                .props("flat dense").tooltip("Undo the last refine")
+
+        ui.space()
 
         # Two rows of tags
         self.tags = ui.input_chips("Tags", new_value_mode="add-unique",
@@ -134,6 +141,10 @@ class ReviewView:
                                                "subjects", self._add_person)
             self.landmark_input = self._chip_row("Landmarks", self._landmark_chips,
                                                  "+ landmark", "landmarks", self._add_landmark)
+
+        self.category = ui.select(sorted(VALID_CATEGORIES), label="Category",
+                                  on_change=self._changed_now) \
+            .props("outlined dense").classes("w-full")
 
         self.place = ui.select([], label="Place — City, Country", with_input=True,
                                clearable=True, new_value_mode="add-unique",
@@ -152,7 +163,11 @@ class ReviewView:
         return field
 
     def _chips(self, names: list[str], present: list[str], on_toggle, numbered: bool) -> None:
-        for n, name in enumerate(names, 1):
+        # Those on the frame come first. The number key of a person follows the roll's
+        # order, not the display order, so a key means the same person on every frame.
+        numbers = {name: n for n, name in enumerate(names, 1)}
+        for name in sorted(names, key=lambda name: name not in present):
+            n = numbers[name]
             on = name in present
             chip = ui.chip(name, selectable=True, selected=on,
                            color="primary" if on else "grey-8", text_color="white",
@@ -238,7 +253,8 @@ class ReviewView:
                                value=meta.get("place") or self._roll_place() or None)
         self._loading = False
         notes = meta.get("notes", [])
-        self.notes_label.set_text("Facts given: " + " · ".join(notes) if notes else "")
+        self.notes_icon.set_visibility(bool(notes))
+        self.notes_tip.set_text("Facts given:\n" + "\n".join(f"• {n}" for n in notes))
         self._people_chips.refresh()
         self._landmark_chips.refresh()
         self.counter.set_text(f"{self.index + 1} / {len(self.pairs)}")

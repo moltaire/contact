@@ -71,11 +71,11 @@ async def index() -> None:
     await run.io_bound(state.refresh_models)
 
     # px-8 lines the wordmark up with the content below (page + panel padding)
-    with ui.header().classes("items-center px-8"):
+    with ui.header().classes("items-center px-8 py-2"):
         ui.label("contact").classes("text-xl wordmark")
         title = ui.label().classes("text-lg mono subtitle")
         ui.space()
-        with ui.tabs() as tabs:
+        with ui.tabs().props("dense") as tabs:
             for name, label in TABS.items():
                 ui.tab(name, label=label)
         ui.button(icon="settings", on_click=lambda: settings.open()) \
