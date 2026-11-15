@@ -91,6 +91,30 @@ body.body--dark .field-box-label {{ color: rgba(255, 255, 255, 0.7); }}
 .box-fixed .q-field__control-container {{ height: 100%; overflow-y: auto; align-content: flex-start; }}
 .box-fixed textarea {{ height: 100% !important; resize: none !important; }}
 
+/* Review: the entry line's mode, the candidates under it, and the sheet */
+.entry-mode {{
+    font-family: {_MONO}; font-size: 0.72rem; letter-spacing: 0.06em; color: {ORANGE};
+    padding-right: 8px; margin-right: 2px; border-right: 1px solid {EDGE}; white-space: nowrap;
+}}
+body.body--light .entry-mode {{ color: {ORANGE_DEEP}; border-right-color: #d5d4cf; }}
+.candidate {{ margin: 0; font-size: 0.78rem; }}
+.sheet-row {{ border-top: 1px solid {EDGE}; padding: 4px 2px; gap: 12px; }}
+body.body--light .sheet-row {{ border-top-color: #d5d4cf; }}
+.sheet-key {{
+    font-family: {_MONO}; font-size: 0.72rem; letter-spacing: 0.06em; color: {ALUMINIUM};
+    width: 4.5rem; flex: none; line-height: 1.5rem;
+}}
+body.body--light .sheet-key {{ color: #6b6a66; }}
+.sheet-key.cursor-pointer:hover {{ color: {ORANGE}; }}
+.sheet-value {{ font-family: {_MONO}; font-size: 0.82rem; line-height: 1.5rem; }}
+.sheet-values .sheet-value:not(:last-child)::after {{ content: ","; color: {ALUMINIUM}; }}
+.sheet-removable {{ cursor: pointer; }}
+.sheet-removable:hover {{ text-decoration: line-through; color: {ORANGE}; }}
+.sheet-inherited, .sheet-empty {{ color: {ALUMINIUM}; font-family: {_MONO}; font-size: 0.82rem; line-height: 1.5rem; }}
+.sheet-select {{ font-size: 0.82rem; min-width: 9rem; }}
+.sheet-select .q-field__control, .sheet-select .q-field__native {{ min-height: 1.6rem; height: 1.6rem; padding: 0; }}
+.sheet-select .q-field__marginal {{ height: 1.6rem; }}
+
 /* Keyboard shortcuts overlay */
 .help-card {{ width: 860px; max-width: 94vw; padding: 20px 24px; gap: 16px; }}
 .wordmark-plain {{ font-family: {_MONO}; font-weight: 700; letter-spacing: 0.04em; }}

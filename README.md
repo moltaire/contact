@@ -43,13 +43,13 @@ The app runs locally and opens in your browser. Five steps:
 1. **Folder** — type or browse to a folder of scans
 2. **Roll info** — describe the roll: film stock, camera, lens, date, location, people, landmarks, lab
 3. **Tagging** — choose frames and let the model describe them. Runs in the background: you can switch tabs, reload or close the browser and the run carries on. Failed frames are listed and stay untagged so they can be retried.
-4. **Review** — one frame at a time. Edits are saved automatically; use ← → or the filmstrip to move between frames. Here you can add what the model cannot know:
-   - **Tell the model a fact** ("this is the Parthenon in Athens") and it rewrites description, tags and category, with undo. Facts are stored with the frame and re-applied when it is re-tagged.
-   - **People:** toggle who is in the frame (keys 1–9). New names are added to the roll's people.
-   - **Landmarks:** named things in the frame — buildings, monuments, venues ("Neue Nationalgalerie"). Type one once, then toggle it on other frames. A fact that names a landmark adds it for you.
-   - **Place:** where the frame was taken, always `City, Country`. A frame without its own place uses the roll's.
-   - ⌘/Ctrl-click or Shift-click frames in the filmstrip to apply any of these to several frames at once.
-   - **Keyboard:** Return (or `/`) jumps to the fact field; Return again applies and leaves it, and Esc leaves any field. `A` selects all frames, Esc clears the selection. A line starting with `/` sets a field directly, without the model: `/person Felix`, `/landmark Neue Nationalgalerie`, `/place Athens, Greece`, `/tag scaffolding`. Short forms work (`/pe`, `/l`, `/pl`, `/t`), several names can be separated by commas, and Tab completes the command and a known name. `?` shows all shortcuts.
+4. **Review** — one frame at a time, built for the keyboard. Edits are saved automatically; ← → or the filmstrip move between frames. Below the description there is one entry line and a sheet listing who, what, where, the tags and the category.
+   - **The entry line has five modes:** fact, tags, people, landmarks, place. Return opens it, Tab switches mode while it is empty, Return applies and leaves it. `T`, `P`, `L`, `W`, `F` open it straight in a mode, and it remembers the last one.
+   - **Fact:** tell the model something it cannot know ("this is the Parthenon in Athens") and it rewrites description, tags and category, with undo. Facts are stored with the frame and re-applied when it is re-tagged.
+   - **People, landmarks, place, tags:** type names, several with commas; Tab completes a known name. The roll's people, landmarks and places appear under the line to click. New names are added to the roll.
+   - **Removing:** click an entry in the sheet, or press Backspace on an empty line.
+   - **Several frames:** ⌘/Ctrl-click or Shift-click frames in the filmstrip (`A` selects all, Esc clears) and whatever you enter applies to all of them.
+   - Slash commands also work in fact mode (`/person Felix`, `/landmark …`, `/place …`, `/tag …`), and `?` shows all shortcuts.
 5. **Contact sheet** — rebuilt from your edits, with the roll summary refreshed. The folder can be renamed to the standard `date_label` pattern here.
 
 Dark theme by default; start with `--light` for the light one.

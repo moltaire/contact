@@ -67,10 +67,18 @@ class SettingsDialog:
             .classes("text-xs text-grey-6 mono")
 
     def _model_select(self, label: str, options: list[str], attr: str) -> None:
+        # Deliberately not a two-way binding: every open page has its own select for the
+        # same setting, and bound together they push values back and forth without end.
         current = getattr(state, attr)
-        ui.select(list(dict.fromkeys([*options, current])), label=label,
-                  on_change=state.save_models) \
-            .bind_value(state, attr).props("outlined dense").classes("w-full")
+        options = list(dict.fromkeys(m for m in [*options, current] if m))
+
+        def chosen(e) -> None:
+            if e.value:
+                setattr(state, attr, e.value)
+                state.save_models()
+
+        ui.select(options, label=label, value=current if current in options else None,
+                  on_change=chosen).props("outlined dense").classes("w-full")
 
     # ── Remembered options ────────────────────────────────────────────────────
 

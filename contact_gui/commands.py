@@ -84,6 +84,25 @@ def complete(text: str, people: list[str], landmarks: list[str], places: list[st
     return f"/{command} {lead}{match}"
 
 
+def split_values(text: str) -> list[str]:
+    """ "Ines, Bea" → ["Ines", "Bea"]: several values on one entry line."""
+    return [value.strip() for value in text.split(",") if value.strip()]
+
+
+def complete_value(text: str, known: list[str], single: bool = False) -> str:
+    """Complete what is being typed on an entry line against known names.
+
+    With several comma-separated values the last one is completed; `single` treats the
+    whole text as one value (a place contains a comma itself).
+    """
+    done, _, typed = ("", "", text) if single else text.rpartition(",")
+    prefix = typed.strip().casefold()
+    match = next((name for name in known if prefix and name.casefold().startswith(prefix)), None)
+    if match is None:
+        return text
+    return f"{done}, {match}" if done else match
+
+
 def completions(people: list[str], landmarks: list[str], places: list[str]) -> list[str]:
     """Full commands for the field's inline completion (Tab accepts)."""
     return [

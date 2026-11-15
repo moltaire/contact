@@ -163,9 +163,14 @@ class State:
             self.text_model = saved["text_model"]
         elif self.text_model not in self.all_models:
             self.text_model = self.vision_model
+        # never leave a model unset, whatever was saved or installed
+        self.vision_model = self.vision_model or FALLBACK_MODEL
+        self.text_model = self.text_model or self.vision_model
 
     def save_models(self) -> None:
         """Remember the model choice for the next start."""
+        if not self.vision_model or not self.text_model:
+            return
         try:
             SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
             SETTINGS_PATH.write_text(json.dumps(

@@ -10,30 +10,31 @@ from nicegui import ui
 _SECTIONS = {
     "Review": [
         ("← →", "Previous / next frame"),
+        ("Return", "Open the entry line"),
+        ("T P L W F", "Open it for tags, people, landmarks, where, or a fact"),
         ("1 … 9", "Toggle a person on the frame"),
-        ("Return", "Jump to the fact field ( / works too)"),
-        ("Esc", "Leave the field you are typing in"),
-        ("Return", "In the field: apply, and leave it"),
-        ("⌘ click", "Add a frame to the selection (Ctrl on Windows and Linux)"),
-        ("⇧ click", "Select a range of frames"),
         ("A", "Select all frames"),
         ("Esc", "Clear the selection"),
+        ("⌘ click", "Add a frame to the selection (Ctrl on Windows and Linux)"),
+        ("⇧ click", "Select a range of frames"),
     ],
-    "Commands in the fact field": [
-        ("/person Name", "Mark a person — several with commas"),
-        ("/landmark Name", "Mark a landmark"),
-        ("/place City, Country", "Set the place"),
-        ("/tag keyword", "Add tags"),
-        ("/pe /l /pl /t", "Short forms"),
-        ("Tab", "Complete the command or a known name"),
+    "In the entry line": [
+        ("Tab", "Empty line: next mode (⇧ Tab goes back)"),
+        ("Tab", "While typing: complete a known name"),
+        ("Return", "Apply, and leave the line"),
+        ("Backspace", "Empty line: remove the last entry of this mode"),
+        ("Esc", "Leave without applying"),
+        ("/person Name", "In fact mode: set a field with a command"),
+        ("/pe /l /pl /t", "Short forms of /person /landmark /place /tag"),
     ],
     "Anywhere": [
         ("?", "Show or hide this overview"),
     ],
 }
 
-_NOTE = ("Edits are saved as you make them. People, landmarks, place, facts and commands "
-         "apply to the current frame and to every frame selected in the filmstrip.")
+_NOTE = ("Edits are saved as you make them. Whatever you enter applies to the current frame "
+         "and to every frame selected in the filmstrip. Several values go on one line with "
+         "commas. Click an entry in the sheet to remove it.")
 
 
 class HelpDialog:

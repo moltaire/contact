@@ -38,6 +38,11 @@
 ### Ideas for later
 - [x] Slash commands in the refine field for keyboard-only review: `/person`, `/landmark`, `/place`, `/tag` set the field directly without calling the model; `/` jumps to the field, Esc leaves it
 
+### 6. Review as one entry line and a sheet
+- [x] One entry line with five modes (fact, tags, people, landmarks, place): Return opens, Tab switches mode on an empty line, Return applies and leaves; T/P/L/W/F open a mode directly; the last mode is remembered
+- [x] The frame's labels are a plain sheet (who, what, where, tags, category); click an entry or press Backspace on an empty line to remove
+- [ ] Next priority: cross-roll index and search
+
 ### Later
 - Tests, cross-roll index and search, contact sheet redesign, coordinates for places, AI-suggested roll label, Ollama install instructions
 
