@@ -91,6 +91,24 @@ body.body--dark .field-box-label {{ color: rgba(255, 255, 255, 0.7); }}
 .box-fixed .q-field__control-container {{ height: 100%; overflow-y: auto; align-content: flex-start; }}
 .box-fixed textarea {{ height: 100% !important; resize: none !important; }}
 
+/* Keyboard shortcuts overlay */
+.help-card {{ width: 860px; max-width: 94vw; padding: 20px 24px; gap: 16px; }}
+.wordmark-plain {{ font-family: {_MONO}; font-weight: 700; letter-spacing: 0.04em; }}
+.help-title {{
+    font-family: {_MONO}; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: {ORANGE};
+}}
+body.body--light .help-title {{ color: {ORANGE_DEEP}; }}
+.help-note {{ color: {ALUMINIUM}; border-top: 1px solid {EDGE}; padding-top: 12px; }}
+body.body--light .help-note {{ color: #6b6a66; border-top-color: #d5d4cf; }}
+.kbd {{
+    font-family: {_MONO}; font-size: 0.75rem; line-height: 1; white-space: nowrap;
+    padding: 4px 6px; border: 1px solid {EDGE}; border-bottom-width: 2px; border-radius: 4px;
+    background: #262626;
+}}
+body.body--light .kbd {{ background: #f4f3f0; border-color: #c9c8c3; }}
+.q-dialog__backdrop {{ background: rgba(0, 0, 0, 0.6); }}
+
 /* Filmstrip: one row that scrolls sideways only */
 .strip {{ overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }}
 """

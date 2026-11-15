@@ -56,6 +56,34 @@ def parse_command(text: str) -> tuple[str, list[str]]:
     return command, values
 
 
+def complete(text: str, people: list[str], landmarks: list[str], places: list[str]) -> str:
+    """What Tab turns the text into: the full command, then the first known name that
+    starts with what was typed. "/pe in" → "/person Ines". Returns the text unchanged
+    if there is nothing to complete. For several comma-separated names, the last one
+    is completed.
+    """
+    if not is_command(text):
+        return text
+    word, space, rest = text.lstrip()[1:].partition(" ")
+    try:
+        command, _ = parse_command(f"/{word} x")
+    except CommandError:
+        return text
+    if not space:
+        return f"/{command} "
+    known = {"person": people, "landmark": landmarks, "place": places}.get(command)
+    if not known:
+        return f"/{command} {rest}"
+    done, typed = ("", rest) if command == "place" else rest.rpartition(",")[::2]
+    done = rest[: len(rest) - len(typed)]
+    prefix = typed.strip().casefold()
+    match = next((name for name in known if prefix and name.casefold().startswith(prefix)), None)
+    if match is None:
+        return f"/{command} {rest}"
+    lead = done + (" " if done and not done.endswith(" ") else "")
+    return f"/{command} {lead}{match}"
+
+
 def completions(people: list[str], landmarks: list[str], places: list[str]) -> list[str]:
     """Full commands for the field's inline completion (Tab accepts)."""
     return [

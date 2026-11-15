@@ -15,12 +15,37 @@ from nicegui import native, run, ui
 from . import files  # noqa: F401 — registers the image routes
 from . import theme
 from .folder import FolderView
+from .help import HelpDialog
 from .review import ReviewView
 from .roll_form import RollView
 from .settings import SettingsDialog
 from .sheet import SheetView
 from .state import state
 from .tagging import TaggingView
+
+# Two keys are handled in the browser itself:
+#   "/"  jumps to the fact field in review. Only here can the key be kept from Firefox's
+#        quick find, and focusing directly is instant.
+#   Esc  leaves whatever field has the cursor (tags, description, place, …), which hands
+#        the keyboard back to the shortcuts. Dialogs keep their own Esc.
+_SLASH_KEY_SCRIPT = """
+<script>
+document.addEventListener("keydown", (event) => {
+  const target = event.target;
+  const typing = target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  if (event.key === "Escape" && typing && !target.closest(".q-dialog")) {
+    target.blur();
+    return;
+  }
+  if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (typing) return;
+  const field = document.querySelector(".fact-field input");
+  if (!field || field.offsetParent === null) return;  // review is not showing
+  event.preventDefault();
+  field.focus();
+});
+</script>
+"""
 
 TABS = {
     "folder": "Folder",
@@ -58,13 +83,18 @@ async def index(tab: str = "") -> None:
             go("review")
 
     def on_key(e) -> None:
-        if panels.value == "review" and not settings.dialog.value:
+        if settings.dialog.value:
+            return
+        if e.action.keydown and str(e.key.name) == "?":
+            help_dialog.toggle()
+        elif panels.value == "review" and not help_dialog.is_open:
             review.handle_key(e)
 
     folder = FolderView(on_opened=refresh_all, on_continue=lambda: go("roll"))
     roll = RollView(on_saved=lambda: (refresh_all(), go("tagging")))
     tagging = TaggingView(on_finished=on_tagging_finished)
-    review = ReviewView(on_roll_changed=lambda: roll.render.refresh())
+    review = ReviewView(on_roll_changed=lambda: roll.render.refresh(),
+                        on_help=lambda: help_dialog.open())
     sheet = SheetView(on_renamed=refresh_all)
     views = {"folder": folder, "roll": roll, "tagging": tagging, "review": review, "sheet": sheet}
 
@@ -91,6 +121,8 @@ async def index(tab: str = "") -> None:
                 view.render()
 
     settings = SettingsDialog(on_lists_changed=lambda: roll.render.refresh())
+    help_dialog = HelpDialog()
+    ui.add_body_html(_SLASH_KEY_SCRIPT)
 
     # Buttons and tabs keep focus after a click; only real text fields should swallow arrows.
     ui.keyboard(on_key=on_key, ignore=["input", "select", "textarea"])

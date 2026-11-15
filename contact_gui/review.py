@@ -23,19 +23,20 @@ from processor.roll import normalize_name, normalize_place
 from processor.sidecar import write_xmp
 from processor.tagger import VALID_CATEGORIES, ensure_ollama, refine_frame, sanitize_tags
 
-from .commands import CommandError, completions, is_command, parse_command
+from .commands import CommandError, complete, completions, is_command, parse_command
 from .files import thumb_url
 from .state import state
 
 _SAVE_DELAY = 1.0  # seconds of quiet typing before a description is written to disk
 # Everything on the review screen that is not the frame: header, paddings, the hint line
 # and the filmstrip. The frame takes the rest of the window, so the screen fits exactly.
-_CHROME_HEIGHT = 250
+_CHROME_HEIGHT = 223
 
 
 class ReviewView:
-    def __init__(self, on_roll_changed: Callable[[], None]) -> None:
+    def __init__(self, on_roll_changed: Callable[[], None], on_help: Callable[[], None]) -> None:
         self.on_roll_changed = on_roll_changed  # a new person/place was added to roll info
+        self.on_help = on_help  # show the keyboard shortcuts
         self.pairs: list[tuple[Path, dict]] = []
         self.index = 0
         self.selection: set[int] = set()  # frames selected in addition to the current one
@@ -75,21 +76,15 @@ class ReviewView:
                         .props("outline").tooltip("Next frame (→)")
                     self.counter = ui.label().classes("mono text-grey-7 whitespace-nowrap")
                     self.name = ui.label().classes("mono font-bold truncate")
+                    # how many frames are selected besides this one; click to clear
+                    self.selection_label = ui.label().classes(
+                        "mono text-xs text-primary whitespace-nowrap cursor-pointer"
+                    ).on("click", self._clear_selection).tooltip("Click or press Esc to clear")
                     ui.space()
                     self.status = ui.label().classes("text-xs text-grey-6 mono whitespace-nowrap")
-                    with ui.icon("help_outline", size="xs").classes("text-grey-6"):
-                        ui.tooltip(
-                            "Edits are saved automatically.\n"
-                            "← →  move between frames\n"
-                            "1–9  toggle people\n"
-                            "/  jump to the fact field, Esc leaves it\n\n"
-                            "In the fact field, a line starting with / sets a field directly:\n"
-                            "/person Name   /landmark Name\n"
-                            "/place City, Country   /tag keyword\n"
-                            "Tab completes a name.\n\n"
-                            "People, landmarks, place and facts also apply to frames selected "
-                            "in the strip (⌘/Ctrl-click, Shift-click for a range)."
-                        ).classes("text-sm max-w-sm whitespace-pre-line")
+                    ui.button(icon="help_outline", on_click=self.on_help) \
+                        .props("flat round dense size=sm color=grey-6") \
+                        .tooltip("Keyboard shortcuts (?)")
                 # Top edge: navigation. Bottom edge: place, level with the bottom of the
                 # frame. In between, two groups — the text (description, refine) and the
                 # labels (tags, people, landmarks, category, place) — with small gaps inside
@@ -97,20 +92,14 @@ class ReviewView:
                 # Every box has a fixed size and scrolls inside, so nothing ever moves.
                 self._build_fields()
 
-        with ui.column().classes("w-full gap-1 -mt-2"):
-            with ui.row().classes("w-full items-center gap-2"):
-                self.selection_label = ui.label().classes("text-xs text-grey-6")
-                ui.button("Select all", on_click=self._select_all).props("flat dense size=sm")
-                self.clear_button = ui.button("Clear selection", on_click=self._clear_selection) \
-                    .props("flat dense size=sm")
-            with ui.row().classes("w-full no-wrap gap-3 p-2 strip"):
-                self.strip = [
-                    ui.image(thumb_url(img, 160)).props("fit=cover")
-                    .classes("w-24 h-20 shrink-0 cursor-pointer frame")
-                    .on("click", lambda e, i=i: self._strip_click(i, e.args),
-                        ["shiftKey", "metaKey", "ctrlKey"])
-                    for i, (img, _) in enumerate(self.pairs)
-                ]
+        with ui.row().classes("w-full no-wrap gap-3 p-2 strip -mt-2"):
+            self.strip = [
+                ui.image(thumb_url(img, 160)).props("fit=cover")
+                .classes("w-24 h-20 shrink-0 cursor-pointer frame")
+                .on("click", lambda e, i=i: self._strip_click(i, e.args),
+                    ["shiftKey", "metaKey", "ctrlKey"])
+                for i, (img, _) in enumerate(self.pairs)
+            ]
         self._show()
 
     def _build_fields(self) -> None:
@@ -123,11 +112,13 @@ class ReviewView:
 
         # Tell the model a fact and let it rewrite description, tags and category
         with ui.row().classes("w-full items-center no-wrap gap-2"):
+            # "fact-field" is what the "/" shortcut looks for (see main.py)
             self.note = ui.input(
                 placeholder="Tell the model a fact — or /person, /landmark, /place"
-            ).props("outlined dense").classes("grow")
+            ).props("outlined dense").classes("grow fact-field")
             self.note.on("keydown.enter", self._refine)
-            self.note.on("keydown.escape", lambda: self.note.run_method("blur"))
+            # Tab completes a command instead of moving focus away
+            self.note.on("keydown.tab.prevent", self._complete_command)
             # Facts already given, without taking a line of their own
             with ui.icon("format_list_bulleted", size="xs").classes("text-grey-6") \
                     as self.notes_icon:
@@ -216,8 +207,10 @@ class ReviewView:
             self.go(self.index - 1)
         elif e.key.arrow_right:
             self.go(self.index + 1)
-        elif str(e.key.name) == "/":
-            self.note.run_method("focus")
+        elif str(e.key.name) in ("a", "A"):
+            self._select_all()
+        elif str(e.key.name) == "Escape":
+            self._clear_selection()
         elif str(e.key.name) in list("123456789"):
             n = int(str(e.key.name)) - 1
             if n < len(self.person_names):
@@ -289,11 +282,7 @@ class ReviewView:
             thumb.classes(add="frame-current" if i == self.index
                           else "frame-selected" if i in self.selection else "frame-dim")
         n = len(self.selection)
-        self.selection_label.set_text(
-            f"{n + 1} frames selected — people, place and facts apply to all of them." if n
-            else "⌘/Ctrl-click or Shift-click frames to work on several at once."
-        )
-        self.clear_button.set_visibility(bool(n))
+        self.selection_label.set_text(f"+{n} selected" if n else "")
 
     # ── Saving hand edits ─────────────────────────────────────────────────────
 
@@ -427,6 +416,17 @@ class ReviewView:
             list(dict.fromkeys([*self.landmark_names, *state.suggestions("landmarks")])),
             self._known_places(),
         ))
+
+    def _complete_command(self) -> None:
+        text = self.note.value or ""
+        completed = complete(
+            text,
+            list(dict.fromkeys([*self.person_names, *state.suggestions("subjects")])),
+            list(dict.fromkeys([*self.landmark_names, *state.suggestions("landmarks")])),
+            self._known_places(),
+        )
+        if completed != text:
+            self.note.set_value(completed)
 
     def _run_command(self, text: str) -> None:
         """Set a field straight from the fact field, e.g. "/person Felix". No model involved."""
