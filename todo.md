@@ -25,9 +25,9 @@
 - [x] Do this together with the single structured call for tagging (see Improvements): both define what the model returns
 
 ### 4. Settings menu
-- [ ] Move vision/text model selection out of the tagging step into a small settings overlay, with a short explanation of what each model does
-- [ ] Manage the remembered options there (places, lenses, cameras, film stocks, labs, people): rename, merge, delete
-- [ ] Quit button that stops the app, so there is no need to close the tab and Ctrl-C the process
+- [x] Move vision/text model selection out of the tagging step into a small settings overlay, with a short explanation of what each model does
+- [x] Manage the remembered options there (places, lenses, cameras, film stocks, labs, people): rename, merge, delete
+- [x] Quit button that stops the app, so there is no need to close the tab and Ctrl-C the process
 
 ### Later
 - Tests, cross-roll index and search, contact sheet redesign, coordinates for places, AI-suggested roll label, Ollama install instructions

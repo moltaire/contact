@@ -187,6 +187,32 @@ def _history_sorted(history: dict, key: str) -> list:
     return sorted(items, key=lambda v: items[v]["last"], reverse=True)
 
 
+HISTORY_KEYS = {
+    "film": "Film stocks", "camera": "Cameras", "lens": "Lenses", "location": "Places",
+    "subjects": "People", "lab": "Labs", "lab_notes": "Lab notes",
+}
+
+
+def rename_history_entry(history: dict, key: str, old: str, new: str) -> None:
+    """Rename a remembered option. Renaming onto an existing one merges the two."""
+    new = new.strip()
+    entries = history.get(key, {})
+    if not new or old not in entries or new == old:
+        return
+    moved = entries.pop(old)
+    if new in entries:
+        entries[new] = {
+            "count": entries[new]["count"] + moved["count"],
+            "last": max(entries[new]["last"], moved["last"]),
+        }
+    else:
+        entries[new] = moved
+
+
+def delete_history_entry(history: dict, key: str, value: str) -> None:
+    history.get(key, {}).pop(value, None)
+
+
 def _suggestions(known: list, history_items: list) -> list:
     used = set(history_items)
     cap = max(0, 10 - len(history_items))

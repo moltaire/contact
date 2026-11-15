@@ -8,11 +8,13 @@ module-level object: it outlives page reloads and tab switches, which is what
 lets a tagging run carry on in the background while the browser comes and goes.
 """
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from processor.pipeline import Event, FrameResult, is_tagged, list_images
 from processor.roll import (
+    HISTORY_PATH,
     _history_sorted,
     _join_list_field,
     _load_history,
@@ -23,6 +25,9 @@ from processor.roll import (
     write_roll_yaml,
 )
 from processor.tagger import FALLBACK_MODEL, list_models, list_vision_models
+
+
+SETTINGS_PATH = HISTORY_PATH.parent / "settings.json"
 
 
 @dataclass
@@ -145,12 +150,36 @@ class State:
     # ── Models ────────────────────────────────────────────────────────────────
 
     def refresh_models(self) -> None:
-        """Ask Ollama what is installed. Blocking — call it off the event loop."""
+        """Ask Ollama what is installed and apply the saved choice. Blocking — call it
+        off the event loop."""
         self.all_models = list_models()
         self.vision_models = list_vision_models()
-        if self.vision_models and self.vision_model not in self.vision_models:
+        saved = self._load_settings()
+        if saved.get("vision_model") in self.vision_models:
+            self.vision_model = saved["vision_model"]
+        elif self.vision_models and self.vision_model not in self.vision_models:
             self.vision_model = self.vision_models[0]
-            self.text_model = self.vision_models[0]
+        if saved.get("text_model") in self.all_models:
+            self.text_model = saved["text_model"]
+        elif self.text_model not in self.all_models:
+            self.text_model = self.vision_model
+
+    def save_models(self) -> None:
+        """Remember the model choice for the next start."""
+        try:
+            SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            SETTINGS_PATH.write_text(json.dumps(
+                {"vision_model": self.vision_model, "text_model": self.text_model}, indent=2
+            ), encoding="utf-8")
+        except OSError:
+            pass
+
+    @staticmethod
+    def _load_settings() -> dict:
+        try:
+            return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
 
 
 state = State()

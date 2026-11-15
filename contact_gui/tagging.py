@@ -45,8 +45,8 @@ class TaggingView:
             return
 
         with ui.row().classes("w-full items-center"):
-            self._model_select("Vision model", state.vision_models, "vision_model")
-            self._model_select("Text model", state.all_models, "text_model")
+            ui.label().bind_text_from(state, "vision_model", backward=lambda m: f"Model: {m}") \
+                .classes("text-xs text-grey-6 mono").tooltip("Change it in Settings (gear icon)")
             ui.space()
             self.untag_button = ui.button("Un-tag selected", on_click=self._confirm_untag) \
                 .props("flat color=grey-8")
@@ -83,11 +83,6 @@ class TaggingView:
         self._shown_failures = 0
         self._sync()
         ui.timer(0.5, self._sync)
-
-    def _model_select(self, label: str, options: list[str], attr: str) -> None:
-        current = getattr(state, attr)
-        ui.select(list(dict.fromkeys([*options, current])), label=label) \
-            .bind_value(state, attr).props("outlined dense").classes("w-64")
 
     # ── Selection ─────────────────────────────────────────────────────────────
 

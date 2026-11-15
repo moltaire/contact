@@ -116,7 +116,8 @@ Where they name something the current description refers to generically, use the
 - Names are often typed casually ("parthenon", "st nicholas"). Never copy that as typed: \
 write every proper name with its correct spelling and capitalization.
 - Every fact must end up in the description, including occasions and events \
-("celebrating a birthday") that the image alone does not show.
+("celebrating a birthday") that the image alone does not show. People the photographer \
+names are written by name ("Ines' birthday", not "someone's birthday").
 - Keep everything else that is still accurate. Do not add details that are neither \
 visible in the image nor stated by the photographer.
 {description_rules}

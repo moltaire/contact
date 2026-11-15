@@ -17,6 +17,7 @@ from . import theme
 from .folder import FolderView
 from .review import ReviewView
 from .roll_form import RollView
+from .settings import SettingsDialog
 from .sheet import SheetView
 from .state import state
 from .tagging import TaggingView
@@ -56,7 +57,7 @@ async def index() -> None:
             go("review")
 
     def on_key(e) -> None:
-        if panels.value == "review":
+        if panels.value == "review" and not settings.dialog.value:
             review.handle_key(e)
 
     folder = FolderView(on_opened=refresh_all, on_continue=lambda: go("roll"))
@@ -77,12 +78,16 @@ async def index() -> None:
         with ui.tabs() as tabs:
             for name, label in TABS.items():
                 ui.tab(name, label=label)
+        ui.button(icon="settings", on_click=lambda: settings.open()) \
+            .props("flat round dense color=grey-6").tooltip("Settings")
 
     start = "folder" if state.folder is None else ("tagging" if state.busy else "folder")
     with ui.tab_panels(tabs, value=start, on_change=on_tab_change).classes("w-full") as panels:
         for name, view in views.items():
             with ui.tab_panel(name):
                 view.render()
+
+    settings = SettingsDialog(on_lists_changed=lambda: roll.render.refresh())
 
     # Buttons and tabs keep focus after a click; only real text fields should swallow arrows.
     ui.keyboard(on_key=on_key, ignore=["input", "select", "textarea"])

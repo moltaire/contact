@@ -49,6 +49,8 @@ The app runs locally and opens in your browser. Five steps:
 
 Dark theme by default; start with `--light` for the light one.
 
+The gear icon opens **Settings**: choose the vision and text model, tidy the remembered options (places, people, lenses, cameras, film stocks, labs), and quit the app.
+
 ---
 
 ## CLI
