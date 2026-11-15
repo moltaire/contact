@@ -17,6 +17,7 @@ from processor.roll import (
     _record,
     _save_history,
     _split_list_field,
+    normalize_name,
     normalize_place,
     write_roll_yaml,
 )
@@ -100,13 +101,17 @@ class RollView:
         locations = list(dict.fromkeys(
             normalize_place(loc, known) for loc in (self.location.value or [])
         ))
+        known_people = _history_sorted(_load_history(), "subjects")
+        subjects = list(dict.fromkeys(
+            normalize_name(name, known_people) for name in (self.subjects.value or [])
+        ))
         data = {
             "film": self.film.value or "",
             "camera": self.camera.value or "",
             "lens": _join_list_field(self.lens.value or []),
             "date": self.date.value or "",
             "location": _join_list_field([loc for loc in locations if loc]),
-            "subjects": _join_list_field(self.subjects.value or []),
+            "subjects": _join_list_field([name for name in subjects if name]),
             "lab": self.lab.value or "",
             "lab_notes": self.lab_notes.value or "",
             # roll.yaml is line-based, so a note stays one line on disk

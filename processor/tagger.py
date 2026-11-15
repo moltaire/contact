@@ -585,11 +585,13 @@ def refine_frame(
         raise RuntimeError("model returned an empty description")
 
     # Capitalization is kept (proper names), duplicates are dropped regardless of case
+    # (some answers pack every tag into one comma-separated string — split those)
     tags: list[str] = []
-    for t in answer.get("tags") or []:
-        t = str(t).strip()
-        if t and t.casefold() not in {x.casefold() for x in tags}:
-            tags.append(t)
+    for item in answer.get("tags") or []:
+        for t in str(item).split(","):
+            t = t.strip()
+            if t and t.casefold() not in {x.casefold() for x in tags}:
+                tags.append(t)
     category = str(answer.get("category", "")).strip().lower()
     place = complete_place(
         normalize_place(str(answer.get("place") or ""), known_places), known_places or []

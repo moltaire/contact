@@ -19,11 +19,10 @@ from pathlib import Path
 from nicegui import run, ui
 
 from processor.pipeline import tagged_pairs
-from processor.roll import complete_place, normalize_place, place_region
+from processor.roll import complete_place, normalize_name, normalize_place, place_region
 from processor.sidecar import write_xmp
 from processor.tagger import VALID_CATEGORIES, ensure_ollama, refine_frame
 
-from . import theme
 from .files import thumb_url
 from .state import state
 
@@ -88,15 +87,14 @@ class ReviewView:
             ui.button("Select all", on_click=self._select_all).props("flat dense size=sm")
             self.clear_button = ui.button("Clear selection", on_click=self._clear_selection) \
                 .props("flat dense size=sm")
-        with ui.scroll_area().classes("w-full h-28") as self.strip_area:
-            with ui.row().classes("no-wrap gap-3 p-2"):
-                self.strip = [
-                    ui.image(thumb_url(img, 160)).props("fit=cover")
-                    .classes("w-24 h-20 cursor-pointer frame")
-                    .on("click", lambda e, i=i: self._strip_click(i, e.args),
-                        ["shiftKey", "metaKey", "ctrlKey"])
-                    for i, (img, _) in enumerate(self.pairs)
-                ]
+        with ui.row().classes("w-full no-wrap gap-3 p-2 strip"):
+            self.strip = [
+                ui.image(thumb_url(img, 160)).props("fit=cover")
+                .classes("w-24 h-20 shrink-0 cursor-pointer frame")
+                .on("click", lambda e, i=i: self._strip_click(i, e.args),
+                    ["shiftKey", "metaKey", "ctrlKey"])
+                for i, (img, _) in enumerate(self.pairs)
+            ]
         self._show()
 
     def _build_fields(self) -> None:
@@ -112,8 +110,7 @@ class ReviewView:
             self.note = ui.input(placeholder="Tell the model a fact, e.g. “this is the Parthenon”") \
                 .props("outlined dense").classes("grow")
             self.note.on("keydown.enter", self._refine)
-            with ui.button("Refine", on_click=self._refine).props("outline") as self.refine_button:
-                theme.ai_mark()
+            self.refine_button = ui.button("Refine", on_click=self._refine).props("outline")
             self.undo_button = ui.button(icon="undo", on_click=self._undo_refine) \
                 .props("flat dense").tooltip("Undo the last refine")
         self.notes_label = ui.label().classes("text-xs text-grey-6 truncate w-full h-4 -mt-1")
@@ -123,13 +120,17 @@ class ReviewView:
             .props("outlined").classes("w-full box-fixed").style("--box-h: 5.5rem")
 
         with ui.column().classes("w-full gap-0"):
-            ui.label("People in this frame").classes("text-xs text-grey-6")
-            with ui.row().classes("w-full items-center gap-1 h-14 overflow-auto content-start"):
-                self._people_chips()
+            # The input sits in the heading row, outside the scrolling chip area,
+            # so it stays reachable however many names there are.
+            with ui.row().classes("w-full items-center no-wrap h-7"):
+                ui.label("People in this frame").classes("text-xs text-grey-6")
+                ui.space()
                 self.person_input = ui.input(placeholder="Add person…",
                                              autocomplete=state.suggestions("subjects")) \
-                    .props("dense borderless").classes("w-32")
+                    .props("dense borderless input-class=text-right").classes("w-40 text-sm")
                 self.person_input.on("keydown.enter", self._add_person)
+            with ui.row().classes("w-full items-center gap-1 h-14 overflow-auto content-start"):
+                self._people_chips()
 
         self.place = ui.select([], label="Place — Local place, City, Country", with_input=True,
                                clearable=True, new_value_mode="add-unique",
@@ -219,11 +220,12 @@ class ReviewView:
         if not self._refining:
             self.status.set_text("")
         self._show_selection()
-        # Keep the current frame in view: first frame flush left, last flush right,
-        # everything in between close to the centre of the strip.
-        if len(self.strip) > 1:
-            self.strip_area.scroll_to(percent=self.index / (len(self.strip) - 1),
-                                      axis="horizontal", duration=0.2)
+        # Centre the current frame in the strip. There is no Python API for scrolling a
+        # plain container, hence the one line of JavaScript.
+        ui.run_javascript(
+            f"getHtmlElement({self.strip[self.index].id})"
+            '?.scrollIntoView({inline: "center", block: "nearest", behavior: "smooth"})'
+        )
 
     def _show_selection(self) -> None:
         for i, thumb in enumerate(self.strip):
@@ -294,7 +296,8 @@ class ReviewView:
         self._people_chips.refresh()
 
     def _add_person(self) -> None:
-        name = (self.person_input.value or "").strip()
+        name = normalize_name(self.person_input.value or "",
+                              [*self.person_names, *state.suggestions("subjects")])
         self.person_input.set_value("")
         if name:
             self._set_person(name, True)

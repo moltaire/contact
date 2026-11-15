@@ -26,7 +26,9 @@ _SANS = "system-ui, -apple-system, 'Segoe UI', sans-serif"
 _CSS = f"""
 body {{ font-family: {_SANS}; background: #ecebe8; color: {BODY}; }}
 body.body--dark {{ background: {BODY}; color: {LETTERING}; }}
-body.body--light {{ --q-primary: {ORANGE_DEEP}; }}
+/* ui.colors sets the variable inline on body, hence !important */
+body.body--light {{ --q-primary: {ORANGE_DEEP} !important; }}
+body.body--light .bg-primary.text-white, body.body--light .q-btn.bg-primary {{ color: #fff !important; }}
 
 /* Film-edge lettering: frame names, counters, the wordmark */
 .mono {{ font-family: {_MONO}; letter-spacing: 0.02em; }}
@@ -43,6 +45,13 @@ body.body--light {{ --q-primary: {ORANGE_DEEP}; }}
 .q-tab {{ color: {ALUMINIUM}; }}
 .q-tab--active {{ color: {ORANGE}; }}
 .q-tab-panels {{ background: transparent; }}
+.q-header .subtitle {{ color: {ALUMINIUM}; }}
+body.body--light .q-header {{
+    background: #f7f6f3; color: {BODY} !important; border-bottom-color: #d5d4cf;
+}}
+body.body--light .q-tab {{ color: #6b6a66; }}
+body.body--light .q-tab--active {{ color: {ORANGE_DEEP}; }}
+body.body--light .q-header .subtitle {{ color: #6b6a66; }}
 
 /* Controls: square-ish corners, no shouting caps, no drop shadows */
 .q-btn {{ border-radius: 3px; font-weight: 600; letter-spacing: 0.01em; }}
@@ -71,12 +80,8 @@ body.body--dark .text-grey-8 {{ color: {ALUMINIUM} !important; }}
 .box-fixed .q-field__control-container {{ height: 100%; overflow-y: auto; align-content: flex-start; }}
 .box-fixed textarea {{ height: 100% !important; resize: none !important; }}
 
-/* Small "AI" marker on buttons that call a model */
-.ai-mark {{
-    font-family: {_MONO}; font-size: 0.62rem; font-weight: 700; line-height: 1;
-    padding: 2px 4px; margin-left: 8px; border: 1px solid currentColor;
-    border-radius: 2px; opacity: 0.85;
-}}
+/* Filmstrip: one row that scrolls sideways only */
+.strip {{ overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }}
 """
 
 
@@ -84,11 +89,6 @@ def apply() -> None:
     """Call once per page, before building it."""
     ui.colors(primary=ORANGE, dark=BODY, dark_page=BODY)
     ui.add_css(_CSS)
-
-
-def ai_mark() -> ui.label:
-    """Use inside a `with ui.button(...):` block to flag that the action runs a model."""
-    return ui.label("AI").classes("ai-mark").tooltip("Uses the local AI model")
 
 
 ui.button.default_props("no-caps unelevated")

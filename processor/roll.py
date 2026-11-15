@@ -85,6 +85,16 @@ def normalize_place(text: str, known: list[str] | None = None) -> str:
     return place
 
 
+def normalize_name(text: str, known: list[str] | None = None) -> str:
+    """A person's name: capitalized if typed in lowercase, and spelled like an existing
+    entry if it differs from one only in case or spacing ("ines" → "Ines")."""
+    name = _tidy_segment(text or "")
+    for existing in known or []:
+        if existing.casefold() == name.casefold():
+            return existing
+    return name
+
+
 def place_region(place: str) -> str:
     """The "City, Country" part of a place — what belongs in the roll's location list."""
     segments = [s.strip() for s in place.split(",") if s.strip()]

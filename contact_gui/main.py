@@ -36,7 +36,7 @@ async def index() -> None:
         panels.set_value(tab)
 
     def refresh_all() -> None:
-        title.set_text(f"· {state.title}" if state.title else "")
+        title.set_text(state.title)
         ui.page_title(f"contact · {state.title}" if state.title else "contact")
         for view in views.values():
             view.render.refresh()
@@ -69,9 +69,10 @@ async def index() -> None:
     theme.apply()
     await run.io_bound(state.refresh_models)
 
-    with ui.header().classes("items-center"):
+    # px-8 lines the wordmark up with the content below (page + panel padding)
+    with ui.header().classes("items-center px-8"):
         ui.label("contact").classes("text-xl wordmark")
-        title = ui.label().classes("text-lg text-grey-5 mono")
+        title = ui.label().classes("text-lg mono subtitle")
         ui.space()
         with ui.tabs() as tabs:
             for name, label in TABS.items():
@@ -85,7 +86,7 @@ async def index() -> None:
 
     # Buttons and tabs keep focus after a click; only real text fields should swallow arrows.
     ui.keyboard(on_key=on_key, ignore=["input", "select", "textarea"])
-    title.set_text(f"· {state.title}" if state.title else "")
+    title.set_text(state.title)
     ui.page_title(f"contact · {state.title}" if state.title else "contact")
 
 

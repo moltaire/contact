@@ -3,13 +3,13 @@
 ## Next up (in this order)
 
 ### 1. Small UI fixes + finish testing
-- [ ] Review: the thumbnail bar must not scroll up and down, only sideways
-- [ ] Header: drop the "·" separator now that the orange dot is there
-- [ ] Header: left-align the "contact" wordmark with the content below
-- [ ] Make the "AI" marker faint, small grey reminder text — or drop it
-- [ ] Review: "Add person…" must stay visible however many names there are
-- [ ] Person names are always capitalized (typed in review or in roll info)
-- [ ] Test what was coded but not exercised: place dropdown and duplicate handling, summary refresh on the contact sheet step, re-tag keeping people/place/facts, refine on several frames, light theme
+- [x] Review: the thumbnail bar must not scroll up and down, only sideways
+- [x] Header: drop the "·" separator now that the orange dot is there
+- [x] Header: left-align the "contact" wordmark with the content below
+- [x] Make the "AI" marker faint, small grey reminder text — or drop it
+- [x] Review: "Add person…" must stay visible however many names there are
+- [x] Person names are always capitalized (typed in review or in roll info)
+- [x] Test what was coded but not exercised: place dropdown and duplicate handling, summary refresh on the contact sheet step, re-tag keeping people/place/facts, refine on several frames, light theme
 
 ### 2. Remove Streamlit
 - [ ] Delete `app.py`, `contact_ui.py`, the dependency and the README section (git tag `last-streamlit` marks the last commit that has it)
@@ -17,6 +17,7 @@
 
 ### 3. Keep tags, people and places apart
 - [ ] Tags are generic keywords only, always lowercase — enforced in code, not left to the model
+- [ ] Seen again in testing: refine put "National Theatre", "Prague" and "Czechia" into tags
 - [ ] Sanitation step after every model answer and every refine: lowercase, de-duplicate, and drop any tag that is a person on the frame or part of its place (seen: "Krefeld, Germany", "Berlin, Germany" and "ines" ending up in tags)
 - [ ] Named things (Hamburger Bahnhof, Varvakios Market, an exhibition) go in the place's local part and the description, where capitals are kept — not in tags
 - [ ] Refine: when a fact names someone from the roll's subjects ("celebrating ines birthday"), mark that person on the frame instead of adding a tag

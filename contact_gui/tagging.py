@@ -15,7 +15,6 @@ from nicegui import background_tasks, run, ui
 from processor.pipeline import is_tagged, tag_images
 from processor.tagger import ensure_ollama
 
-from . import theme
 from .files import thumb_url
 from .state import Job, state
 
@@ -51,12 +50,11 @@ class TaggingView:
             ui.space()
             self.untag_button = ui.button("Un-tag selected", on_click=self._confirm_untag) \
                 .props("flat color=grey-8")
-            with ui.button("Re-tag selected", on_click=lambda: self._start(retag=True)) \
-                    .props("outline") as self.retag_button:
-                theme.ai_mark()
-            with ui.button("Tag untagged", on_click=lambda: self._start(retag=False)) \
-                    as self.tag_button:
-                theme.ai_mark()
+            self.retag_button = ui.button("Re-tag selected",
+                                          on_click=lambda: self._start(retag=True)) \
+                .props("outline")
+            self.tag_button = ui.button("Tag untagged",
+                                        on_click=lambda: self._start(retag=False))
 
         with ui.card().classes("w-full") as self.progress_card:
             with ui.row().classes("w-full items-center no-wrap"):
@@ -77,7 +75,7 @@ class TaggingView:
                 with ui.column().classes("gap-0"):
                     ui.image(thumb_url(img)).props("fit=contain").classes("w-full h-40 frame")
                     self.checkboxes[img.name] = ui.checkbox(
-                        img.name + ("  ✓ tagged" if is_tagged(img) else ""),
+                        ("✓ " if is_tagged(img) else "") + img.name,
                         value=img.name in state.selected,
                         on_change=lambda e, name=img.name: self._toggle(name, e.value),
                     ).classes("text-xs break-all mono")
