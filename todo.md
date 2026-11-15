@@ -25,6 +25,9 @@
 ## Bugs
 
 - [ ] Somehow, I ended up with a roll without AI summary. I did switch tabs during processing, so the tagging page was reloaded. Maybe that led to confusion. Question here: Should the tagging process continue in the background? I think yes. If so, we should also persist the process bar.
+- [x] When ollama isn't running, it just throws "Connection refused" errors. Now starts ollama automatically, or explains what to do.
+- [x] Thinking models (gemma4, qwen3.5) returned empty descriptions for most frames; empty results were saved as tagged.
+- [x] Portrait frames were sent to the model sideways (EXIF orientation ignored).
 
 ## Improvements
 

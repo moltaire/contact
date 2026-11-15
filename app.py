@@ -35,7 +35,15 @@ from processor.roll import (
     write_roll_yaml,
 )
 from processor.sidecar import _read_xmp_meta, write_xmp
-from processor.tagger import VALID_CATEGORIES, analyze_image, write_roll_summary
+from processor.tagger import (
+    FALLBACK_MODEL,
+    VALID_CATEGORIES,
+    analyze_image,
+    ensure_ollama,
+    list_models,
+    list_vision_models,
+    write_roll_summary,
+)
 
 _roll_label = (st.session_state.get("roll") or {}).get("label", "").strip()
 st.set_page_config(
@@ -43,8 +51,6 @@ st.set_page_config(
     page_icon="🎞️",
     layout="wide",
 )
-
-_VISION_KEYWORDS = {"vision", "llava", "minicpm", "bakllava", "moondream", "cogvlm"}
 
 _CSS = """
 <style>
@@ -76,17 +82,9 @@ _TAB_NAMES = [
 
 
 @st.cache_data(ttl=300)
-def _get_ollama_models() -> list[str]:
-    try:
-        r = subprocess.run(
-            ["ollama", "list"], capture_output=True, text=True, timeout=5
-        )
-        if r.returncode != 0:
-            return []
-        lines = r.stdout.strip().split("\n")
-        return [line.split()[0] for line in lines[1:] if line.split()]
-    except Exception:
-        return []
+def _get_ollama_models() -> tuple[list[str], list[str]]:
+    """Return (all installed models, those that accept images — best default first)."""
+    return list_models(), list_vision_models()
 
 
 def _switch_tab(index: int):
@@ -106,10 +104,6 @@ def _switch_tab(index: int):
         </script>""",
         height=0,
     )
-
-
-def _is_vision_model(name: str) -> bool:
-    return any(kw in name.lower() for kw in _VISION_KEYWORDS)
 
 
 def _thumb(path: Path, size: int = 300) -> Image.Image:
@@ -218,8 +212,9 @@ def _init_state():
         "folder": None,
         "roll": {},
         "images": [],
-        "vision_model": "llama3.2-vision:11b",
-        "text_model": "llama3.2-vision:11b",
+        "vision_model": None,
+        "text_model": None,
+        "tag_errors": [],
         "folder_input_initialized": False,
         "review_idx": 0,
         "next_tab": None,
@@ -227,6 +222,11 @@ def _init_state():
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
+    if not st.session_state.vision_model:
+        _, vision_models = _get_ollama_models()
+        default = vision_models[0] if vision_models else FALLBACK_MODEL
+        st.session_state.vision_model = default
+        st.session_state.text_model = default
 
 
 def _cli_folder() -> str:
@@ -240,6 +240,7 @@ def _cli_folder() -> str:
 
 
 def _clear_folder_state():
+    st.session_state.tag_errors = []
     for key in [
         "film_sel",
         "cam_sel",
@@ -550,13 +551,11 @@ def _render_images():
                 "contact uses two [ollama](https://ollama.com) models: a **vision model** that "
                 "looks at each image and writes a description, and a **text model** that "
                 "synthesizes the roll summary. Both must be installed locally with ollama. "
-                "Good vision models: `llama3.2-vision`, `moondream`, `llava`. "
-                "For the text model, any instruction-following model works (e.g. `llama3.2`, `mistral`). "
-                "Install with: `ollama pull llama3.2-vision:11b`"
+                "A good vision model that fits in 16 GB of RAM is `gemma4:e4b`; "
+                "it can do both jobs. "
+                "Install with: `ollama pull gemma4:e4b`"
             )
-            all_models = _get_ollama_models()
-            vision_models = [m for m in all_models if _is_vision_model(m)]
-            text_models = all_models
+            text_models, vision_models = _get_ollama_models()
             col1, col2 = st.columns(2)
             with col1:
                 if vision_models:
@@ -624,9 +623,15 @@ def _render_images():
             else:
                 st.info("Select at least one image.")
         else:
+            try:
+                ensure_ollama()
+            except RuntimeError as e:
+                st.error(str(e))
+                st.stop()
             n = len(to_process)
             prog = st.progress(0, text=f"Starting… (0 / {n})")
             all_meta: list = []
+            errors: list[str] = []
 
             for i, img in enumerate(to_process):
                 prog.progress(i / n, text=f"Tagging {img.name}  ({i + 1} / {n})")
@@ -641,7 +646,8 @@ def _render_images():
                     write_xmp(img, meta, roll)
                     all_meta.append(meta)
                 except Exception as e:
-                    st.error(f"{img.name}: {e}")
+                    errors.append(f"{img.name}: {e}")
+                    st.error(errors[-1])
 
             prog.progress(1.0, text="Finalizing…")
             if all_meta:
@@ -664,8 +670,18 @@ def _render_images():
             ]:
                 del st.session_state[key]
             st.session_state.review_idx = 0
-            st.session_state.next_tab = 3
+            # Errors would vanish on rerun, so keep them and stay on this tab to show them.
+            st.session_state.tag_errors = errors
+            if not errors:
+                st.session_state.next_tab = 3
             st.rerun()
+
+    if st.session_state.tag_errors:
+        st.error(
+            f"{len(st.session_state.tag_errors)} image(s) could not be tagged and were left "
+            "untagged. Press **Tag untagged** to retry them.\n\n"
+            + "\n".join(f"- {e}" for e in st.session_state.tag_errors)
+        )
 
     # ── Image grid ────────────────────────────────────────────────────────────
     grid_cols = st.columns(4)

@@ -15,8 +15,32 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+def _apply_exif_orientation(data: bytes) -> bytes:
+    """Bake the EXIF orientation into the pixels.
+
+    Scanners often store portrait frames as landscape pixels plus an orientation
+    flag. Ollama ignores the flag, so without this the model sees the frame sideways.
+    Returns the input unchanged if Pillow is unavailable or the image is already upright.
+    """
+    try:
+        import io
+
+        from PIL import Image, ImageOps
+
+        img = Image.open(io.BytesIO(data))
+        if img.getexif().get(0x0112, 1) == 1:
+            return data
+        img = ImageOps.exif_transpose(img)
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, "JPEG", quality=90)
+        return buf.getvalue()
+    except Exception:
+        return data
+
+
 def _load_image_b64(path: Path, max_pixels: int = 1500) -> str:
-    """Return base64-encoded image, downscaled via macOS sips to speed up inference."""
+    """Return a base64-encoded, upright JPEG, downscaled via macOS sips to speed up inference."""
+    data = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
             tmp_path = Path(tmp.name)
@@ -27,13 +51,12 @@ def _load_image_b64(path: Path, max_pixels: int = 1500) -> str:
         )
         if result.returncode == 0 and tmp_path.stat().st_size > 0:
             data = tmp_path.read_bytes()
-            tmp_path.unlink(missing_ok=True)
-            return base64.b64encode(data).decode()
         tmp_path.unlink(missing_ok=True)
     except Exception:
         pass
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+    if data is None:
+        data = path.read_bytes()
+    return base64.b64encode(_apply_exif_orientation(data)).decode()
 
 
 def _xe(s: str) -> str:

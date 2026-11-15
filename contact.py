@@ -18,11 +18,10 @@ Usage:
 """
 
 import argparse
-import subprocess
 from pathlib import Path
 
 from processor.roll import IMAGE_EXTS, load_roll_yaml, build_folder_name, run_roll_setup
-from processor.tagger import analyze_image, write_roll_summary, ollama_ready, wait_for_ollama
+from processor.tagger import analyze_image, write_roll_summary, ensure_ollama, default_vision_model
 from processor.sidecar import write_xmp, _read_xmp_meta
 from processor.html import write_roll_html
 
@@ -125,9 +124,9 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="llama3.2-vision:11b",
+        default=None,
         metavar="MODEL",
-        help="Ollama vision model (default: llama3.2-vision:11b).",
+        help="Ollama vision model (default: best installed vision model, e.g. gemma4:e4b).",
     )
     parser.add_argument(
         "--text-model",
@@ -158,8 +157,6 @@ def main():
     )
     args = parser.parse_args()
 
-    vision_model = args.model
-    text_model = args.text_model or args.model
 
     # ── Resolve target folders ────────────────────────────────────────────────
     if args.init:
@@ -230,23 +227,20 @@ def main():
     # ── Start Ollama once for all folders ─────────────────────────────────────
     if args.dry_run:
         print("[dry-run] No XMP files will be written.\n")
+
+    try:
+        ollama_proc = ensure_ollama()
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        return
+    if ollama_proc:
+        print("Started Ollama.")
+
+    vision_model = args.model or default_vision_model()
+    text_model = args.text_model or vision_model
     print(f"Vision model : {vision_model}")
     print(f"Text model   : {text_model}")
     print()
-
-    already_running = ollama_ready()
-    ollama_proc = None
-    if not already_running:
-        print("Starting Ollama…")
-        ollama_proc = subprocess.Popen(
-            ["ollama", "serve"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        if not wait_for_ollama():
-            print("Error: Ollama failed to start.")
-            ollama_proc.terminate()
-            return
 
     try:
         for i, folder in enumerate(folders):

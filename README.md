@@ -12,7 +12,7 @@ contact is a tool to tag and archive analog film scans using locally running AI.
 - [Ollama](https://ollama.com) with a vision model pulled
 
 ```bash
-ollama pull llama3.2-vision:11b
+ollama pull gemma4:e4b
 ```
 
 ---
@@ -70,7 +70,7 @@ contact ~/scans/tuscany/ --verbose    # show full AI output per frame
 | Flag | Description |
 |---|---|
 | `--init` | Run interactive roll setup |
-| `--model MODEL` | Vision model (default: `llama3.2-vision:11b`) |
+| `--model MODEL` | Vision model (default: the best installed vision model, e.g. `gemma4:e4b`) |
 | `--text-model MODEL` | Separate model for the synthesis stage |
 | `--dry-run` | Preview without writing any files |
 | `--force` | Re-tag images that already have a sidecar |

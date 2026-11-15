@@ -6,7 +6,9 @@ Ollama API helpers, prompts, per-frame analysis, and roll summary generation.
 
 import json
 import re
+import subprocess
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +19,11 @@ from .sidecar import _load_image_b64
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 OLLAMA_BASE = "http://localhost:11434"
+
+# Used when no installed model can be detected. `ollama pull gemma4:e4b` provides it.
+FALLBACK_MODEL = "gemma4:e4b"
+# Installed vision models are ranked by the first prefix they match.
+_PREFERRED_MODELS = ("gemma4:e4b", "gemma4:12b", "gemma4", "qwen3.5", "llama3.2-vision")
 VALID_CATEGORIES = {
     "landscape", "portrait", "street", "architecture",
     "nature", "abstract", "other",
@@ -105,13 +112,15 @@ Describe only what is directly stated in the frame descriptions — do not specu
 Do not describe mood, atmosphere, or emotional qualities. \
 Do not mention film, camera, equipment, or technical qualities."""
 
-# Three escalating attempts: full prompt → short fallback → very short fallback
+# Three escalating attempts: full prompt → short fallback → very short fallback.
+# Budgets are generous on purpose: a truncated answer is worse than a slow one.
 _VISION_ATTEMPTS = [
-    (VISION_PROMPT,          {"num_predict": 300, "repeat_penalty": 1.3}),
-    (VISION_PROMPT_FALLBACK, {"num_predict": 100, "repeat_penalty": 1.5}),
-    (VISION_PROMPT_FALLBACK, {"num_predict":  60, "repeat_penalty": 1.8}),
+    (VISION_PROMPT,          {"num_predict": 600, "repeat_penalty": 1.3}),
+    (VISION_PROMPT_FALLBACK, {"num_predict": 200, "repeat_penalty": 1.5}),
+    (VISION_PROMPT_FALLBACK, {"num_predict": 120, "repeat_penalty": 1.8}),
 ]
-_SYNTH_OPTS = {"num_predict": 200, "repeat_penalty": 1.1}
+_SYNTH_OPTS = {"num_predict": 400, "repeat_penalty": 1.1}
+_SUMMARY_OPTS = {"num_predict": 300, "repeat_penalty": 1.1}
 
 _PERSON_TERMS = {
     "man", "woman", "child", "boy", "girl", "person", "people",
@@ -148,43 +157,134 @@ def wait_for_ollama(timeout: int = 30) -> bool:
     return False
 
 
-def _call_vision(b64: str, model: str, prompt: str, system: str, options: dict | None = None) -> str:
+def ensure_ollama(timeout: int = 30) -> "subprocess.Popen | None":
+    """Make sure the Ollama server is reachable, starting it if necessary.
+
+    Returns the process we started (so the caller can stop it again), or None
+    if Ollama was already running. Raises RuntimeError if it cannot be reached.
+    """
+    if ollama_ready():
+        return None
+    try:
+        proc = subprocess.Popen(
+            ["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except FileNotFoundError:
+        raise RuntimeError(
+            "Ollama is not installed (the `ollama` command was not found). "
+            "Install it from https://ollama.com, then run `ollama pull gemma4:e4b`."
+        ) from None
+    if not wait_for_ollama(timeout):
+        proc.terminate()
+        raise RuntimeError(
+            f"Ollama did not start within {timeout}s. Try running `ollama serve` in a terminal."
+        )
+    return proc
+
+
+def _post(endpoint: str, body: dict, timeout: int) -> dict:
+    req = urllib.request.Request(
+        f"{OLLAMA_BASE}{endpoint}",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")[:300]
+        raise RuntimeError(f"Ollama returned HTTP {e.code}: {detail}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(
+            f"Cannot reach Ollama at {OLLAMA_BASE} ({e.reason}). "
+            "Is it running? Start it with `ollama serve`."
+        ) from e
+
+
+def list_models() -> list[str]:
+    """Names of all locally installed Ollama models (empty if Ollama is unreachable)."""
+    try:
+        with urllib.request.urlopen(f"{OLLAMA_BASE}/api/tags", timeout=5) as resp:
+            return [m["name"] for m in json.loads(resp.read()).get("models", [])]
+    except Exception:
+        return []
+
+
+def model_capabilities(model: str) -> set[str]:
+    """Capabilities Ollama reports for a model, e.g. {'completion', 'vision', 'thinking'}."""
+    try:
+        return set(_post("/api/show", {"model": model}, timeout=10).get("capabilities") or [])
+    except Exception:
+        return set()
+
+
+def list_vision_models() -> list[str]:
+    """Installed models that accept images, best default first."""
+    models = [m for m in list_models() if "vision" in model_capabilities(m)]
+
+    def rank(name: str) -> int:
+        for i, prefix in enumerate(_PREFERRED_MODELS):
+            if name.startswith(prefix):
+                return i
+        return len(_PREFERRED_MODELS)
+
+    # Cloud models send images off the machine — never pick one by default.
+    return sorted(models, key=lambda m: (m.endswith("-cloud"), rank(m)))
+
+
+def default_vision_model() -> str:
+    models = list_vision_models()
+    return models[0] if models else FALLBACK_MODEL
+
+
+def _generate(
+    model: str,
+    prompt: str,
+    system: str,
+    options: dict | None = None,
+    images: list[str] | None = None,
+    timeout: int = 300,
+) -> str:
+    """One non-streaming completion. Raises RuntimeError on an empty or cut-off answer.
+
+    Thinking is switched off: for these short descriptive tasks it roughly doubles
+    the time per frame without improving the result, and reasoning tokens count
+    against num_predict — a long chain of thought leaves no room for the answer.
+    """
     body: dict = {
         "model": model,
         "system": system,
         "prompt": prompt,
-        "images": [b64],
         "stream": False,
+        "think": False,
     }
+    if images:
+        body["images"] = images
     if options:
         body["options"] = options
-    payload = json.dumps(body).encode()
-    req = urllib.request.Request(
-        f"{OLLAMA_BASE}/api/generate",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        return json.loads(resp.read())["response"].strip()
+    try:
+        data = _post("/api/generate", body, timeout)
+    except RuntimeError as e:
+        # Some models reject the `think` field outright; retry without it.
+        if "HTTP 400" not in str(e) or "think" not in str(e).lower():
+            raise
+        del body["think"]
+        data = _post("/api/generate", body, timeout)
+
+    text = (data.get("response") or "").strip()
+    if not text:
+        reason = data.get("done_reason", "unknown")
+        hint = " (token budget spent on reasoning)" if data.get("thinking") else ""
+        raise RuntimeError(f"model returned an empty answer, done_reason={reason}{hint}")
+    return text
+
+
+def _call_vision(b64: str, model: str, prompt: str, system: str, options: dict | None = None) -> str:
+    return _generate(model, prompt, system, options, images=[b64], timeout=300)
 
 
 def _call_text(model: str, prompt: str, system: str, options: dict | None = None) -> str:
-    body: dict = {
-        "model": model,
-        "system": system,
-        "prompt": prompt,
-        "stream": False,
-    }
-    if options:
-        body["options"] = options
-    payload = json.dumps(body).encode()
-    req = urllib.request.Request(
-        f"{OLLAMA_BASE}/api/generate",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        return json.loads(resp.read())["response"].strip()
+    return _generate(model, prompt, system, options, timeout=120)
 
 
 # ── Repetition guard ──────────────────────────────────────────────────────────
@@ -229,26 +329,40 @@ def _is_repetitive(text: str) -> bool:
 # ── Synthesis parser ──────────────────────────────────────────────────────────
 
 
+_SYNTH_LINE = re.compile(
+    r"^[\s*#>\-`_]*(CATEGORY|TAGS|DESCRIPTION)[\s*`_]*:[\s*`_]*(.*)$", re.I
+)
+
+
+def _clean_value(value: str) -> str:
+    return value.strip().strip("*`_").strip()
+
+
 def parse_synthesis(text: str) -> dict:
+    """Parse the three KEY: VALUE lines, tolerating markdown decoration and wrapped lines."""
     result: dict = {}
+    last_key = None
     for line in text.strip().splitlines():
-        key, sep, value = line.partition(":")
-        k = key.strip().upper()
-        if sep and k in SYNTHESIS_KEYS:
-            result[k.lower()] = value.strip()
+        m = _SYNTH_LINE.match(line)
+        if m:
+            last_key = m.group(1).lower()
+            result[last_key] = _clean_value(m.group(2))
+        elif last_key and line.strip():
+            # Continuation of the previous value (e.g. a description wrapped over lines)
+            result[last_key] = (result[last_key] + " " + _clean_value(line)).strip()
 
     tags_raw = result.get("tags", "")
     seen: set = set()
     tags: list = []
     for t in tags_raw.split(","):
-        t = t.strip().lower()
+        t = t.strip().strip("*`_.").strip().lower()
         if t and t not in seen:
             seen.add(t)
             tags.append(t)
     result["tags"] = tags
 
-    if result.get("category", "") not in VALID_CATEGORIES:
-        result["category"] = "other"
+    category = result.get("category", "").lower().strip(" .*`_")
+    result["category"] = category if category in VALID_CATEGORIES else "other"
 
     return result
 
@@ -312,27 +426,31 @@ def analyze_image(
     b64 = _load_image_b64(path)
 
     visual_desc = None
+    last_problem = ""
     for attempt, (v_prompt, v_opts) in enumerate(_VISION_ATTEMPTS, 1):
         try:
             result = _call_vision(b64, vision_model, v_prompt, VISION_SYSTEM, v_opts)
         except Exception as e:
-            raise RuntimeError(f"vision stage failed (attempt {attempt}): {e}") from e
+            last_problem = str(e)
+            # An unreachable server or missing model won't fix itself — fail fast.
+            if "empty answer" not in last_problem:
+                raise RuntimeError(f"vision stage failed (attempt {attempt}): {e}") from e
+            print(f"    [vision] empty answer on attempt {attempt}")
+            continue
         if not _is_repetitive(result):
             if attempt > 1:
                 print(f"    [vision] succeeded on attempt {attempt}")
             visual_desc = result
             break
-        if attempt < len(_VISION_ATTEMPTS):
-            print(f"    [vision] loop on attempt {attempt} — retrying")
+        last_problem = "model produced repetitive output"
+        print(f"    [vision] loop on attempt {attempt}")
 
     if visual_desc is None:
-        print("    [vision] all attempts looped — skipping")
-        return {
-            "category": "other",
-            "tags": [],
-            "description": "",
-            "vision_raw": "(vision model produced repetitive output — skipped)",
-        }
+        # No sidecar is written for a failed frame, so it stays "untagged" and is retried next run.
+        raise RuntimeError(
+            f"vision stage gave no usable description after {len(_VISION_ATTEMPTS)} attempts "
+            f"({last_problem})"
+        )
 
     if verbose:
         print(f"    [vision] {visual_desc}")
@@ -341,14 +459,23 @@ def analyze_image(
         vision_section=f"Visual description: {visual_desc}",
     )
 
-    try:
-        raw_synthesis = _call_text(text_model, synthesis_prompt, SYNTHESIS_SYSTEM, _SYNTH_OPTS)
-    except Exception as e:
-        raise RuntimeError(f"synthesis stage failed: {e}") from e
+    meta: dict = {}
+    for attempt in (1, 2):
+        try:
+            raw_synthesis = _call_text(text_model, synthesis_prompt, SYNTHESIS_SYSTEM, _SYNTH_OPTS)
+        except Exception as e:
+            if attempt == 2 or "empty answer" not in str(e):
+                raise RuntimeError(f"synthesis stage failed: {e}") from e
+            continue
+        meta = parse_synthesis(raw_synthesis)
+        if meta.get("description"):
+            break
+        print(f"    [synthesis] no description in answer on attempt {attempt}")
 
-    meta = parse_synthesis(raw_synthesis)
     meta["tags"]        = _drop_phantom_people(meta.get("tags", []), visual_desc)
     meta["description"] = _fix_phantom_desc(meta.get("description", ""), visual_desc)
+    if not meta["description"]:
+        raise RuntimeError("synthesis stage produced no description")
 
     if verbose:
         print(f"    [category]    {meta.get('category', '?')}")
@@ -380,8 +507,9 @@ def _generate_roll_prose(all_meta: list, roll: dict, text_model: str) -> str:
         descriptions="\n".join(f"- {d}" for d in descs[:20]),
     )
     try:
-        return _call_text(text_model, prompt, ROLL_SUMMARY_SYSTEM, {"num_predict": 150, "repeat_penalty": 1.1})
-    except Exception:
+        return _call_text(text_model, prompt, ROLL_SUMMARY_SYSTEM, _SUMMARY_OPTS)
+    except Exception as e:
+        print(f"  ✗ roll summary failed: {e}")
         return ""
 
 
