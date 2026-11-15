@@ -32,7 +32,8 @@ TABS = {
 
 
 @ui.page("/")
-async def index() -> None:
+async def index(tab: str = "") -> None:
+    """The whole app is one page. `/?tab=review` opens it on a given step."""
     def go(tab: str) -> None:
         panels.set_value(tab)
 
@@ -82,6 +83,8 @@ async def index() -> None:
             .props("flat round dense color=grey-6").tooltip("Settings")
 
     start = "folder" if state.folder is None else ("tagging" if state.busy else "folder")
+    if tab in TABS and state.folder is not None:
+        start = tab
     with ui.tab_panels(tabs, value=start, on_change=on_tab_change).classes("w-full") as panels:
         for name, view in views.items():
             with ui.tab_panel(name):

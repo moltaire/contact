@@ -5,24 +5,43 @@
       xmlns:dc="http://purl.org/dc/elements/1.1/"
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
+      xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
+      xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
       xmlns:film="http://ns.contact.local/1.0/">
-      <dc:description>A bridge spans a river, with a cityscape visible in the background. The city is located on the river.</dc:description>
+      <dc:description>A view of the Vltava River, seen from a bridge, with a waterfall structure in the foreground. Large bridges span the wide waterway, while a long line of multi-story buildings forms the distant skyline. Industrial machinery and some small structures are visible near the weir.</dc:description>
       <dc:subject>
         <rdf:Bag>
-      <rdf:li>bridge</rdf:li>
-      <rdf:li>city</rdf:li>
       <rdf:li>river</rdf:li>
-      <rdf:li>cityscape</rdf:li>
+      <rdf:li>bridge</rdf:li>
+      <rdf:li>waterfall</rdf:li>
+      <rdf:li>urban</rdf:li>
+      <rdf:li>structure</rdf:li>
+      <rdf:li>building</rdf:li>
+      <rdf:li>high contrast</rdf:li>
+      <rdf:li>Vltava</rdf:li>
         </rdf:Bag>
       </dc:subject>
       <xmp:CreateDate>2023-09</xmp:CreateDate>
-      <Iptc4xmpCore:Location>Prague, Czech Republic</Iptc4xmpCore:Location>
+      <Iptc4xmpCore:Location>Vltava</Iptc4xmpCore:Location>
+      <photoshop:City>Prague</photoshop:City>
+      <photoshop:Country>Czech Republic</photoshop:Country>
+      <film:landmarks>
+        <rdf:Bag>
+          <rdf:li>Vltava</rdf:li>
+        </rdf:Bag>
+      </film:landmarks>
+      <film:userNotes>
+        <rdf:Seq>
+          <rdf:li>the Vltava, seen from a bridge</rdf:li>
+        </rdf:Seq>
+      </film:userNotes>
       <film:stock>Ilford HP5 Plus</film:stock>
       <film:camera>Canon A-1</film:camera>
       <film:lens>Canon FD 50mm 1:1.8 | Canon FD 28mm 1:2.8</film:lens>
       <film:notes>Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</film:notes>
       <film:category>landscape</film:category>
-      <film:processedAt>2026-03-02T16:00:43.501016+00:00</film:processedAt>
+      <film:visionRaw>A wide waterway flows beneath large stone arches spanning across. Industrial machinery and some small structures are visible near a low weir structure in the foreground. A long line of multi-story buildings forms a distant background along the far bank.</film:visionRaw>
+      <film:processedAt>2026-11-15T13:51:01.144086+00:00</film:processedAt>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>

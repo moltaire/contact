@@ -5,29 +5,31 @@
       xmlns:dc="http://purl.org/dc/elements/1.1/"
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
+      xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
+      xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
       xmlns:film="http://ns.contact.local/1.0/">
-      <dc:description>The photograph depicts a disused, subterranean space featuring a large, abandoned, metal, circular structure. The setting is a subterranean or below-ground structure that appears to be out of use. The structure is darkly lit, with no visible source of natural or artificial light.</dc:description>
+      <dc:description>A dark, abstract composition dominated by concentric circles and bright linear refractions. Several sharp, bright streaks run vertically through the center of the frame against a deep black background. Curved circular patterns are visible across the entire image field.</dc:description>
       <dc:subject>
         <rdf:Bag>
-      <rdf:li>abandoned</rdf:li>
-      <rdf:li>structure</rdf:li>
-      <rdf:li>metal</rdf:li>
-      <rdf:li>industrial</rdf:li>
-      <rdf:li>circular</rdf:li>
-      <rdf:li>subterranean</rdf:li>
-      <rdf:li>space</rdf:li>
-      <rdf:li>dark</rdf:li>
-      <rdf:li>empty</rdf:li>
+      <rdf:li>circles</rdf:li>
+      <rdf:li>pattern</rdf:li>
+      <rdf:li>lights</rdf:li>
+      <rdf:li>texture</rdf:li>
+      <rdf:li>darkness</rdf:li>
+      <rdf:li>reflection</rdf:li>
         </rdf:Bag>
       </dc:subject>
       <xmp:CreateDate>2023-09</xmp:CreateDate>
       <Iptc4xmpCore:Location>Prague, Czech Republic</Iptc4xmpCore:Location>
+      <photoshop:City>Prague</photoshop:City>
+      <photoshop:Country>Czech Republic</photoshop:Country>
       <film:stock>Ilford HP5 Plus</film:stock>
       <film:camera>Canon A-1</film:camera>
       <film:lens>Canon FD 50mm 1:1.8 | Canon FD 28mm 1:2.8</film:lens>
       <film:notes>Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</film:notes>
-      <film:category>other</film:category>
-      <film:processedAt>2026-03-02T16:00:43.500850+00:00</film:processedAt>
+      <film:category>abstract</film:category>
+      <film:visionRaw>A dark, abstract composition dominated by concentric circles and bright linear refractions. Several sharp, bright streaks run vertically through the center of the frame against a deep black background. Curved circular patterns are visible across the entire image field.</film:visionRaw>
+      <film:processedAt>2026-11-15T13:49:13.945893+00:00</film:processedAt>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>

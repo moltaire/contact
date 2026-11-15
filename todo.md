@@ -14,7 +14,7 @@
 ### 2. Remove Streamlit
 - [x] Delete `app.py`, `contact_ui.py`, the dependency and the README section (git tag `last-streamlit` marks the last commit that has it)
 - [x] Command name: `contact-ui` now starts the new app; `contact-gui` is kept as an alias
-- [ ] README screenshots still show the Streamlit UI — retake
+- [x] README screenshots retaken from the new app (headless Chrome against `/?tab=<step>` on the sample roll)
 
 ### 3. Keep tags, people and places apart
 - [x] Tags are generic keywords only, always lowercase — enforced in code, not left to the model
@@ -55,7 +55,7 @@
 
 - [x] Add screenshots of the UI
 - [x] Make sample contact sheet into a GitHub page
-- [ ] Add installation instructions for ollama + llama3.2-vision (e.g., brew)
+- [x] Add installation instructions for ollama (brew) and the default model
 
 ## Features
 

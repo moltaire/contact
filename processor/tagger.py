@@ -114,7 +114,7 @@ DESCRIPTION: {description}
 
 The photographer, who took this photo, states these facts about it:
 {notes}
-{context}
+
 Rewrite the metadata so that it reflects these facts. Rules:
 - The photographer's facts are true, even where the image alone would not prove them. \
 Where they name something the current description refers to generically, use the name \
@@ -136,8 +136,7 @@ with its proper spelling. Only names the photographer gave — never guess one f
 image. An empty list if they named none.
 - place: the city and country the photo was taken in, as "City, Country" (for example \
 "Athens, Greece"), only if the photographer's facts name the city; otherwise an empty \
-string. Never guess. A landmark is not part of the place. If a known place of this \
-roll fits, use exactly that."""
+string. Never guess. A landmark is not part of the place."""
 
 # ── Answer formats ────────────────────────────────────────────────────────────
 
@@ -443,6 +442,22 @@ def landmarks_mentioned(candidates: list, notes: list[str], known: list[str]) ->
     return found
 
 
+def _place_from_facts(answered: str, notes_text: str, known_places: list[str]) -> str:
+    """The place the model derived, accepted only if the facts really name its city.
+
+    Uses the roll's spelling when the city matches one of its places, so "Prague, Czechia"
+    does not appear next to "Prague, Czech Republic".
+    """
+    place = normalize_place(answered, known_places)
+    city = place.split(",")[0].strip().casefold()
+    if not city or not re.search(r"(?<!\w)" + re.escape(city) + r"(?!\w)", notes_text):
+        return ""
+    for known in known_places:
+        if known.split(",")[0].strip().casefold() == city:
+            return known
+    return place
+
+
 def _parse_answer(raw: str) -> dict:
     """Decode a JSON answer and normalise description and category."""
     try:
@@ -547,15 +562,14 @@ def refine_frame(
     if not notes:
         return dict(meta)
 
-    # known_people is deliberately not shown to the model: given the list, it writes
-    # everyone on it into the description. Who is mentioned is decided in code below.
-    context = "\nKnown places of this roll: " + "; ".join(known_places) if known_places else ""
+    # The roll's people and places are deliberately not shown to the model: given such a
+    # list it uses it unasked — everyone ends up in the description, and every frame is
+    # "taken in" the roll's city. What the facts mention is decided in code below.
     prompt = REFINE_PROMPT_TMPL.format(
         category=meta.get("category", "other"),
         tags=", ".join(meta.get("tags", [])) or "(none)",
         description=meta.get("description", "") or "(none)",
         notes="\n".join(f"- {n}" for n in notes),
-        context=context + "\n" if context else "",
         description_rules=_DESCRIPTION_RULES,
         tag_rules=_TAG_RULES,
         category_rules=_CATEGORY_RULES,
@@ -568,11 +582,15 @@ def refine_frame(
     extra_landmark, answered_place = split_place(str(answer.get("place") or ""))
     candidates = [*(answer.get("landmarks") or []), *([extra_landmark] if extra_landmark else [])]
     known = [*(meta.get("landmarks") or []), *(known_landmarks or [])]
+    notes_text = " ".join(notes).casefold()
+    # Landmarks of the roll that the facts name outright count even if the model, which
+    # is unsure whether a river or a square is a "landmark", leaves them out
+    named = [k for k in known_landmarks or [] if k.casefold() in notes_text]
     landmarks = list(dict.fromkeys(
-        [*(meta.get("landmarks") or []), *landmarks_mentioned(candidates, notes, known)]
+        [*(meta.get("landmarks") or []), *named, *landmarks_mentioned(candidates, notes, known)]
     ))
     # The photographer's own choice of place wins over one derived from a note
-    place = meta.get("place") or normalize_place(answered_place, known_places)
+    place = meta.get("place") or _place_from_facts(answered_place, notes_text, known_places or [])
     people = list(dict.fromkeys(
         [*(meta.get("people") or []), *people_mentioned(" ".join(notes), known_people or [])]
     ))

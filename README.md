@@ -12,8 +12,11 @@ contact is a tool to tag and archive analog film scans using locally running AI.
 - [Ollama](https://ollama.com) with a vision model pulled
 
 ```bash
-ollama pull gemma4:e4b
+brew install ollama        # or download it from ollama.com
+ollama pull gemma4:e4b     # about 10 GB; runs comfortably in 16 GB of RAM
 ```
+
+contact starts Ollama itself when it is not running.
 
 ---
 
@@ -38,7 +41,7 @@ contact-ui --folder ~/scans/tuscany/
 The app runs locally and opens in your browser. Five steps:
 
 1. **Folder** — type or browse to a folder of scans
-2. **Roll info** — describe the roll: film stock, camera, lens, date, location, subjects, lab
+2. **Roll info** — describe the roll: film stock, camera, lens, date, location, people, landmarks, lab
 3. **Tagging** — choose frames and let the model describe them. Runs in the background: you can switch tabs, reload or close the browser and the run carries on. Failed frames are listed and stay untagged so they can be retried.
 4. **Review** — one frame at a time. Edits are saved automatically; use ← → or the filmstrip to move between frames. Here you can add what the model cannot know:
    - **Tell the model a fact** ("this is the Parthenon in Athens") and it rewrites description, tags and category, with undo. Facts are stored with the frame and re-applied when it is re-tagged.
@@ -49,6 +52,15 @@ The app runs locally and opens in your browser. Five steps:
 5. **Contact sheet** — rebuilt from your edits, with the roll summary refreshed. The folder can be renamed to the standard `date_label` pattern here.
 
 Dark theme by default; start with `--light` for the light one.
+
+<p>
+  <img src="docs/screenshots/contact_2_roll.png" width="49%" alt="Roll info">
+  <img src="docs/screenshots/contact_3_tagging.png" width="49%" alt="Tagging">
+</p>
+<p>
+  <img src="docs/screenshots/contact_4_review.png" width="49%" alt="Review">
+  <img src="docs/screenshots/contact_5_sheet.png" width="49%" alt="Contact sheet">
+</p>
 
 The gear icon opens **Settings**: choose the vision and text model, tidy the remembered options (places, people, landmarks, lenses, cameras, film stocks, labs) — including moving landmarks that were filed under people, and quit the app.
 
@@ -79,7 +91,7 @@ contact ~/scans/tuscany/ --verbose    # show full AI output per frame
 |---|---|
 | `--init` | Run interactive roll setup |
 | `--model MODEL` | Vision model (default: the best installed vision model, e.g. `gemma4:e4b`) |
-| `--text-model MODEL` | Separate model for the synthesis stage |
+| `--text-model MODEL` | Separate model for the roll summary (default: same as `--model`) |
 | `--dry-run` | Preview without writing any files |
 | `--force` | Re-tag images that already have a sidecar |
 | `--verbose` | Print full AI output for each frame |
@@ -92,7 +104,7 @@ contact ~/scans/tuscany/ --verbose    # show full AI output per frame
 Roll-level metadata is saved to `roll.yaml` in the scan folder:
 
 - **Film stock, camera** — pick from suggestions or type your own
-- **Lenses, locations, subjects** — multiple values allowed; previous entries are suggested
+- **Lenses, locations, people, landmarks** — multiple values allowed; previous entries are suggested. Locations are written as `City, Country`.
 - **Lab, lab notes, date, notes** — free text
 - **Label** — short name used as the contact sheet title (e.g. `Oslo Summer 2024`)
 
@@ -102,7 +114,7 @@ History is remembered across sessions in `~/.config/contact/history.json`.
 
 ## Output
 
-**XMP sidecars** (one per image) contain the AI-generated description, tags, and category, plus roll metadata. Readable by Lightroom, darktable, Finder, and Spotlight.
+**XMP sidecars** (one per image) contain the AI-generated description, tags, and category, plus roll metadata and anything added in review: people, landmarks, place and the facts you gave the model. Readable by Lightroom, darktable, Finder, and Spotlight.
 
 **`index.html`** — a self-contained contact sheet with:
 - Image overview and lightbox
@@ -114,12 +126,11 @@ History is remembered across sessions in `~/.config/contact/history.json`.
 
 ## How it works
 
-Each frame goes through two stages:
+Each frame is sent to a local vision model once. It answers with a 2–3 sentence description of what is physically visible, a handful of generic lowercase tags, and one category. It is told not to guess who or where — names, landmarks and places are yours to add in review, where a fact you state is passed back to the model to rewrite the frame.
 
-1. A vision model describes what is physically visible in the image
-2. A text model turns that into a category, up to 12 tags, and a 2–3 sentence description
+Tags are cleaned in code after every answer and edit: lowercased, de-duplicated, and never a person, landmark or place, which have their own fields.
 
-After all frames are processed, a short summary of the whole roll is written to the HTML index.
+After all frames are processed, a short summary of the whole roll is written to the HTML index. It is refreshed when you open the contact sheet step after editing frames.
 
 ## Try it out
 
@@ -129,7 +140,7 @@ A sample roll is included at `docs/example/sample-roll/`. It has pre-tagged imag
 # Open the contact sheet directly
 open docs/example/sample-roll/index.html
 
-# Or load it in the UI (read-only — no Ollama needed to browse)
+# Or load it in the app (no Ollama needed to browse and edit by hand)
 contact-ui --folder docs/example/sample-roll/
 ```
 

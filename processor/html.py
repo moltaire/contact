@@ -14,7 +14,7 @@ def write_roll_html(folder: Path, pairs: list, roll: dict) -> None:
     """pairs: [(image_path, meta), ...]. Reloads roll.yaml to pick up generated summary."""
     full_roll = load_roll_yaml(folder)
 
-    _LIST_FM_FIELDS = {"location", "lens", "subjects"}
+    _LIST_FM_FIELDS = {"location", "lens", "subjects", "landmarks"}
 
     roll_label = full_roll.get("label", "")
     location = full_roll.get("location", "")
@@ -46,6 +46,7 @@ def write_roll_html(folder: Path, pairs: list, roll: dict) -> None:
         ("LENS",  _fm_join("lens")),
         ("LOC",   _fm_join("location")),
         ("SUBJ",  _fm_join("subjects")),
+        ("SITES", _fm_join("landmarks")),
         ("LAB",   lab_val),
         ("NOTES", _xe(full_roll.get("notes",  ""))),
     ]

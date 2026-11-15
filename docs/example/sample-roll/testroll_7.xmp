@@ -5,29 +5,32 @@
       xmlns:dc="http://purl.org/dc/elements/1.1/"
       xmlns:xmp="http://ns.adobe.com/xap/1.0/"
       xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"
+      xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
+      xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
       xmlns:film="http://ns.contact.local/1.0/">
-      <dc:description>A small waterway runs through a park, lined with stone walls and flanked by trees and grassy areas, with a small island on the left and steps leading down to the waterway on the right, set against a background of trees and buildings.</dc:description>
+      <dc:description>A dark waterway runs between retaining walls made of rough-hewn stone. A large tree with drooping foliage overhangs a small spit of land in the water. Stairs lead down from an elevated area alongside the canal.</dc:description>
       <dc:subject>
         <rdf:Bag>
-      <rdf:li>stone walls</rdf:li>
-      <rdf:li>trees</rdf:li>
-      <rdf:li>grass</rdf:li>
       <rdf:li>waterway</rdf:li>
-      <rdf:li>weeping willow</rdf:li>
-      <rdf:li>stone wall</rdf:li>
-      <rdf:li>metal railings</rdf:li>
-      <rdf:li>windows</rdf:li>
-      <rdf:li>door</rdf:li>
+      <rdf:li>stone</rdf:li>
+      <rdf:li>tree</rdf:li>
+      <rdf:li>canal</rdf:li>
+      <rdf:li>retaining wall</rdf:li>
+      <rdf:li>outdoor</rdf:li>
+      <rdf:li>reflection</rdf:li>
         </rdf:Bag>
       </dc:subject>
       <xmp:CreateDate>2023-09</xmp:CreateDate>
       <Iptc4xmpCore:Location>Prague, Czech Republic</Iptc4xmpCore:Location>
+      <photoshop:City>Prague</photoshop:City>
+      <photoshop:Country>Czech Republic</photoshop:Country>
       <film:stock>Ilford HP5 Plus</film:stock>
       <film:camera>Canon A-1</film:camera>
       <film:lens>Canon FD 50mm 1:1.8 | Canon FD 28mm 1:2.8</film:lens>
       <film:notes>Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</film:notes>
       <film:category>landscape</film:category>
-      <film:processedAt>2026-03-02T16:00:43.501179+00:00</film:processedAt>
+      <film:visionRaw>A dark waterway runs between retaining walls made of rough-hewn stone. A large tree with drooping foliage overhangs a small spit of land in the water. Stairs lead down from an elevated area alongside the canal.</film:visionRaw>
+      <film:processedAt>2026-11-15T13:49:38.231542+00:00</film:processedAt>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>

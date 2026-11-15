@@ -15,7 +15,7 @@ from nicegui import run, ui
 from processor.pipeline import is_tagged
 
 from .files import thumb_url
-from .state import state
+from .state import display_path, state
 
 
 def _pick_folder_dialog() -> str:
@@ -48,7 +48,7 @@ class FolderView:
             ui.button("Choose folder…", icon="folder_open", on_click=self._browse).props("outline")
             self.path_input = ui.input(
                 placeholder="/path/to/scans/roll_01",
-                value=str(state.folder) if state.folder else "",
+                value=display_path(state.folder) if state.folder else "",
             ).props("outlined dense").classes("grow")
             self.path_input.on("keydown.enter", lambda: self._open(self.path_input.value))
             ui.button("Open", on_click=lambda: self._open(self.path_input.value)).props("flat")

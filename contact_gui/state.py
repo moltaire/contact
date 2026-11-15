@@ -182,4 +182,12 @@ class State:
             return {}
 
 
+def display_path(path: Path) -> str:
+    """A path as shown in the UI: the home folder shortened to "~"."""
+    try:
+        return "~/" + str(path.relative_to(Path.home()))
+    except ValueError:
+        return str(path)
+
+
 state = State()

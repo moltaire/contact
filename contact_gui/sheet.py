@@ -16,7 +16,7 @@ from processor.roll import build_folder_name
 from processor.tagger import ensure_ollama
 
 from .files import roll_file_url
-from .state import state
+from .state import display_path, state
 
 
 class SheetView:
@@ -38,7 +38,7 @@ class SheetView:
             return
 
         with ui.row().classes("w-full items-center"):
-            ui.label(str(index)).classes("text-grey-7 text-sm break-all")
+            ui.label(display_path(index)).classes("text-grey-7 text-sm break-all mono")
             ui.space()
             new_name = build_folder_name(state.roll)
             if new_name and new_name != state.folder.name:
