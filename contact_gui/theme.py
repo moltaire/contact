@@ -75,6 +75,16 @@ body.body--dark .text-grey-8 {{ color: {ALUMINIUM} !important; }}
 .frame-dim {{ opacity: 0.5; }}
 .frame-dim:hover {{ opacity: 0.9; }}
 
+/* A plain container dressed like the outlined fields around it */
+.field-box {{
+    border: 1px solid rgba(0, 0, 0, 0.24); border-radius: 3px; background: #fff;
+    padding: 4px 12px 8px;
+}}
+body.body--dark .field-box {{ border-color: {EDGE}; background: {PANEL}; }}
+.field-box-label {{ font-size: 0.75rem; color: rgba(0, 0, 0, 0.6); }}
+body.body--dark .field-box-label {{ color: rgba(255, 255, 255, 0.7); }}
+.field-box .q-chip {{ margin: 0; }}
+
 /* Review: boxes with a fixed size that scroll inside instead of growing */
 .box-fixed .q-field__control {{ height: var(--box-h); }}
 .box-fixed .q-field__control-container {{ height: 100%; overflow-y: auto; align-content: flex-start; }}

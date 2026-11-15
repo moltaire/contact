@@ -6,9 +6,9 @@ Review step: one frame at a time, edited in place and saved automatically.
 Besides editing the model's text by hand, the photographer can
   • tell the model a fact ("this is the Parthenon in Athens") and let it rewrite
     description, tags and category,
-  • mark who is in the frame, and
+  • mark who and which landmarks are in the frame, and
   • set where it was taken.
-These three apply to the current frame plus any frames selected in the filmstrip
+These apply to the current frame plus any frames selected in the filmstrip
 (⌘/Ctrl-click to add one, Shift-click for a range).
 """
 
@@ -19,7 +19,7 @@ from pathlib import Path
 from nicegui import run, ui
 
 from processor.pipeline import tagged_pairs
-from processor.roll import complete_place, normalize_name, normalize_place, place_region
+from processor.roll import normalize_name, normalize_place
 from processor.sidecar import write_xmp
 from processor.tagger import VALID_CATEGORIES, ensure_ollama, refine_frame, sanitize_tags
 
@@ -36,6 +36,7 @@ class ReviewView:
         self.index = 0
         self.selection: set[int] = set()  # frames selected in addition to the current one
         self.person_names: list[str] = []
+        self.landmark_names: list[str] = []
         self._loading = False
         self._refining = False
         self._save_timer: ui.timer | None = None
@@ -58,7 +59,7 @@ class ReviewView:
         # Fixed geometry: the image and the editing column have the same height and the
         # navigation sits on top, so nothing moves when a description or tag list is long.
         with ui.row().classes("w-full no-wrap gap-6 items-stretch") \
-                .style("height: calc(100vh - 290px); min-height: 540px"):
+                .style("height: calc(100vh - 290px); min-height: 590px"):
             self.image = ui.image().props("fit=contain").classes("w-3/5 h-full frame")
             with ui.column().classes("w-2/5 h-full gap-2 no-wrap overflow-auto"):
                 with ui.row().classes("w-full items-center no-wrap"):
@@ -78,8 +79,10 @@ class ReviewView:
                             "1–9 toggle people. People, place and facts also apply to frames "
                             "selected in the strip (⌘/Ctrl-click, Shift-click for a range)."
                         ).classes("text-sm max-w-xs")
-                # Every box below has a fixed size and scrolls inside, so the column
-                # never changes height from one frame to the next.
+                # Navigation stays at the top and the fields stack up from the bottom edge
+                # of the frame; whatever height is left over becomes air below the navigation.
+                # Every box has a fixed size and scrolls inside, so nothing ever moves.
+                ui.space()
                 self._build_fields()
 
         with ui.row().classes("w-full items-center gap-2 mt-2"):
@@ -101,54 +104,76 @@ class ReviewView:
         self.category = ui.select(sorted(VALID_CATEGORIES), label="Category",
                                   on_change=self._changed_now) \
             .props("outlined dense").classes("w-full")
+
+        # Five lines of text
         self.description = ui.textarea("Description", on_change=self._changed_typing) \
-            .props("outlined").classes("w-full box-fixed").style("--box-h: 8rem")
+            .props("outlined").classes("w-full box-fixed").style("--box-h: 8.75rem")
         self.description.on("blur", self.save)
 
         # Tell the model a fact and let it rewrite description, tags and category
-        with ui.row().classes("w-full items-center no-wrap gap-2"):
-            self.note = ui.input(placeholder="Tell the model a fact, e.g. “this is the Parthenon”") \
-                .props("outlined dense").classes("grow")
-            self.note.on("keydown.enter", self._refine)
-            self.refine_button = ui.button("Refine", on_click=self._refine).props("outline")
-            self.undo_button = ui.button(icon="undo", on_click=self._undo_refine) \
-                .props("flat dense").tooltip("Undo the last refine")
-        self.notes_label = ui.label().classes("text-xs text-grey-6 truncate w-full h-4 -mt-1")
-
-        self.tags = ui.input_chips("Tags — lowercase keywords", new_value_mode="add-unique",
-                                   on_change=self._changed_now) \
-            .props("outlined").classes("w-full box-fixed").style("--box-h: 5.5rem")
-
         with ui.column().classes("w-full gap-0"):
-            # The input sits in the heading row, outside the scrolling chip area,
-            # so it stays reachable however many names there are.
-            with ui.row().classes("w-full items-center no-wrap h-7"):
-                ui.label("People in this frame").classes("text-xs text-grey-6")
-                ui.space()
-                self.person_input = ui.input(placeholder="Add person…",
-                                             autocomplete=state.suggestions("subjects")) \
-                    .props("dense borderless input-class=text-right").classes("w-40 text-sm")
-                self.person_input.on("keydown.enter", self._add_person)
-            with ui.row().classes("w-full items-center gap-1 h-14 overflow-auto content-start"):
-                self._people_chips()
+            with ui.row().classes("w-full items-center no-wrap gap-2"):
+                self.note = ui.input(
+                    placeholder="Tell the model a fact, e.g. “this is the Parthenon”"
+                ).props("outlined dense").classes("grow")
+                self.note.on("keydown.enter", self._refine)
+                self.refine_button = ui.button("Refine", on_click=self._refine).props("outline")
+                self.undo_button = ui.button(icon="undo", on_click=self._undo_refine) \
+                    .props("flat dense").tooltip("Undo the last refine")
+            self.notes_label = ui.label().classes("text-xs text-grey-6 truncate w-full h-4 px-1")
 
-        self.place = ui.select([], label="Place — Local place, City, Country", with_input=True,
+        # Two rows of tags
+        self.tags = ui.input_chips("Tags", new_value_mode="add-unique",
+                                   on_change=self._changed_now) \
+            .props("outlined").classes("w-full box-fixed").style("--box-h: 6rem")
+
+        # People and landmarks: one row each, in a box that matches the fields around it.
+        # The chips scroll sideways inside their row; the add fields never move.
+        with ui.column().classes("w-full gap-1 field-box"):
+            self.person_input = self._chip_row("People", self._people_chips, "Add person…",
+                                               "subjects", self._add_person)
+            self.landmark_input = self._chip_row("Landmarks", self._landmark_chips,
+                                                 "Add landmark…", "landmarks", self._add_landmark)
+
+        self.place = ui.select([], label="Place — City, Country", with_input=True,
                                clearable=True, new_value_mode="add-unique",
                                on_change=self._place_changed) \
             .props("outlined dense").classes("w-full")
+
+    def _chip_row(self, label: str, chips, placeholder: str, history_key: str, on_add) -> ui.input:
+        with ui.row().classes("w-full items-center no-wrap gap-2 h-10"):
+            ui.label(label).classes("field-box-label w-20 shrink-0")
+            with ui.row().classes("grow no-wrap gap-1 items-center strip h-full"):
+                chips()
+            field = ui.input(placeholder=placeholder,
+                             autocomplete=state.suggestions(history_key)) \
+                .props("dense borderless input-class=text-right").classes("w-36 shrink-0 text-sm")
+            field.on("keydown.enter", on_add)
+        return field
+
+    def _chips(self, names: list[str], present: list[str], on_toggle, numbered: bool) -> None:
+        for n, name in enumerate(names, 1):
+            on = name in present
+            chip = ui.chip(name, selectable=True, selected=on,
+                           color="primary" if on else "grey-8", text_color="white",
+                           on_selection_change=lambda e, name=name: on_toggle(name, e.value)) \
+                .classes("shrink-0")
+            if numbered and n <= 9:
+                chip.tooltip(f"Press {n} to toggle")
 
     @ui.refreshable_method
     def _people_chips(self) -> None:
         """One toggle per person: the roll's subjects, plus anyone else on this frame."""
         people = self.pairs[self.index][1].get("people", [])
         self.person_names = list(dict.fromkeys([*state.roll_values("subjects"), *people]))
-        for n, name in enumerate(self.person_names, 1):
-            on = name in people
-            chip = ui.chip(name, selectable=True, selected=on,
-                           color="primary" if on else "grey-7", text_color="white",
-                           on_selection_change=lambda e, name=name: self._set_person(name, e.value))
-            if n <= 9:
-                chip.tooltip(f"Press {n} to toggle")
+        self._chips(self.person_names, people, self._set_person, numbered=True)
+
+    @ui.refreshable_method
+    def _landmark_chips(self) -> None:
+        """One toggle per landmark: the roll's landmarks, plus any others on this frame."""
+        landmarks = self.pairs[self.index][1].get("landmarks", [])
+        self.landmark_names = list(dict.fromkeys([*state.roll_values("landmarks"), *landmarks]))
+        self._chips(self.landmark_names, landmarks, self._set_landmark, numbered=False)
 
     # ── Navigation and selection ──────────────────────────────────────────────
 
@@ -208,11 +233,14 @@ class ReviewView:
         self.category.set_value(meta.get("category", "other"))
         self.description.set_value(meta.get("description", ""))
         self.tags.set_value(list(meta.get("tags", [])))
-        self.place.set_options(self._known_places(), value=meta.get("place") or None)
+        # A frame without its own place shows the roll's, when the roll has exactly one
+        self.place.set_options(self._known_places(),
+                               value=meta.get("place") or self._roll_place() or None)
         self._loading = False
         notes = meta.get("notes", [])
         self.notes_label.set_text("Facts given: " + " · ".join(notes) if notes else "")
         self._people_chips.refresh()
+        self._landmark_chips.refresh()
         self.counter.set_text(f"{self.index + 1} / {len(self.pairs)}")
         self.prev_button.set_enabled(self.index > 0)
         self.next_button.set_enabled(self.index < len(self.pairs) - 1)
@@ -244,7 +272,7 @@ class ReviewView:
     def _write(self, i: int, meta: dict) -> None:
         img = self.pairs[i][0]
         # Tags stay generic keywords: lowercase, and never a person or place of the frame
-        meta = {**meta, "tags": sanitize_tags(meta.get("tags"), meta.get("people"),
+        meta = {**meta, "tags": sanitize_tags(meta.get("tags"), self._names(meta),
                                               meta.get("place", ""))}
         write_xmp(img, meta, state.roll)
         self.pairs[i] = (img, meta)
@@ -280,26 +308,38 @@ class ReviewView:
             **meta,
             "category": self.category.value or "other",
             "description": (self.description.value or "").strip(),
-            "tags": sanitize_tags(self.tags.value, meta.get("people"), meta.get("place", "")),
+            "tags": sanitize_tags(self.tags.value, self._names(meta), meta.get("place", "")),
         }
         if all(edited[k] == meta.get(k) for k in ("category", "description", "tags")):
             return
         self._write(self.index, edited)
 
-    # ── People and place ──────────────────────────────────────────────────────
+    # ── People, landmarks and place ───────────────────────────────────────────
 
-    def _set_person(self, name: str, present: bool) -> None:
+    @staticmethod
+    def _names(meta: dict) -> list[str]:
+        return [*meta.get("people", []), *meta.get("landmarks", [])]
+
+    def _set_member(self, field: str, roll_key: str, name: str, present: bool) -> None:
+        """Add or remove a person or landmark on the current frame and the selection."""
         self.save()
         for i in self._targets():
             meta = self.pairs[i][1]
-            people = [p for p in meta.get("people", []) if p != name]
+            members = [m for m in meta.get(field, []) if m != name]
             if present:
-                people.append(name)
-            if people != meta.get("people", []):
-                self._write(i, {**meta, "people": people})
-        if present and state.add_roll_values("subjects", [name]):
+                members.append(name)
+            if members != meta.get(field, []):
+                self._write(i, {**meta, field: members})
+        if present and state.add_roll_values(roll_key, [name]):
             self.on_roll_changed()
+
+    def _set_person(self, name: str, present: bool) -> None:
+        self._set_member("people", "subjects", name, present)
         self._people_chips.refresh()
+
+    def _set_landmark(self, name: str, present: bool) -> None:
+        self._set_member("landmarks", "landmarks", name, present)
+        self._landmark_chips.refresh()
 
     def _add_person(self) -> None:
         name = normalize_name(self.person_input.value or "",
@@ -307,6 +347,17 @@ class ReviewView:
         self.person_input.set_value("")
         if name:
             self._set_person(name, True)
+
+    def _add_landmark(self) -> None:
+        name = normalize_name(self.landmark_input.value or "",
+                              [*self.landmark_names, *state.suggestions("landmarks")])
+        self.landmark_input.set_value("")
+        if name:
+            self._set_landmark(name, True)
+
+    def _roll_place(self) -> str:
+        locations = state.roll_values("location")
+        return locations[0] if len(locations) == 1 else ""
 
     def _known_places(self) -> list[str]:
         """Suggestions, most relevant first: this roll's locations, places already used
@@ -316,28 +367,25 @@ class ReviewView:
             p for p in [*state.roll_values("location"), *used, *state.suggestions("location")] if p
         ))
 
-    def _add_region_to_roll(self, places: list[str]) -> None:
-        """Roll info keeps the "City, Country" level of every place used on a frame."""
-        known = state.roll_values("location")
-        regions = [normalize_place(place_region(p), known) for p in places if "," in p]
-        if state.add_roll_values("location", regions):
+    def _add_places_to_roll(self, places: list[str]) -> None:
+        if state.add_roll_values("location", [p for p in places if p]):
             self.on_roll_changed()
 
     def _place_changed(self) -> None:
         if self._loading:
             return
         self.save()
-        typed = self.place.value or ""
-        place = complete_place(normalize_place(typed, self._known_places()),
-                               state.roll_values("location"))
+        place = normalize_place(self.place.value or "", self._known_places())
+        if place == self._roll_place():
+            place = ""  # same as the roll's only location: nothing to store on the frame
         for i in self._targets():
             meta = self.pairs[i][1]
             if place != meta.get("place", ""):
                 self._write(i, {**meta, "place": place})
-        self._add_region_to_roll([place])
+        self._add_places_to_roll([place])
         # Show the tidied spelling and drop whatever was typed from the suggestions
         self._loading = True
-        self.place.set_options(self._known_places(), value=place or None)
+        self.place.set_options(self._known_places(), value=place or self._roll_place() or None)
         self._loading = False
 
     # ── Refining with the model ───────────────────────────────────────────────
@@ -362,7 +410,8 @@ class ReviewView:
                 try:
                     new = await run.io_bound(refine_frame, img, meta, note, state.vision_model,
                                              state.roll_values("location"),
-                                             state.roll_values("subjects"))
+                                             state.roll_values("subjects"),
+                                             state.roll_values("landmarks"))
                 except Exception as e:
                     failed.append(f"{img.name}: {e}")
                     continue
@@ -379,7 +428,11 @@ class ReviewView:
         if undo:
             self._undo = undo
             self.note.set_value("")
-            self._add_region_to_roll([self.pairs[i][1].get("place", "") for i, _ in undo])
+            refined = [self.pairs[i][1] for i, _ in undo]
+            self._add_places_to_roll([m.get("place", "") for m in refined])
+            landmarks = [name for m in refined for name in m.get("landmarks", [])]
+            if state.add_roll_values("landmarks", landmarks):
+                self.on_roll_changed()
         self._show()
         self.status.set_text(f"Refined {len(undo)} frame{'s' if len(undo) != 1 else ''}"
                              if undo else "")

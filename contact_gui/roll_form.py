@@ -77,9 +77,12 @@ class RollView:
                 self.location = _pick_many("Location (City, Country)",
                                            _split_list_field(roll.get("location", "")),
                                            past("location"))
-                self.subjects = _pick_many("Subjects",
+                self.subjects = _pick_many("People",
                                            _split_list_field(roll.get("subjects", "")),
                                            past("subjects"))
+                self.landmarks = _pick_many("Landmarks",
+                                            _split_list_field(roll.get("landmarks", "")),
+                                            past("landmarks"))
                 self.lab = _pick_one("Lab", roll.get("lab", ""), past("lab"))
                 self.lab_notes = ui.input("Lab notes", value=roll.get("lab_notes", ""),
                                           placeholder="e.g. push 1 stop") \
@@ -102,8 +105,12 @@ class RollView:
             normalize_place(loc, known) for loc in (self.location.value or [])
         ))
         known_people = _history_sorted(_load_history(), "subjects")
+        past_landmarks = _history_sorted(_load_history(), "landmarks")
         subjects = list(dict.fromkeys(
             normalize_name(name, known_people) for name in (self.subjects.value or [])
+        ))
+        landmarks = list(dict.fromkeys(
+            normalize_name(name, past_landmarks) for name in (self.landmarks.value or [])
         ))
         data = {
             "film": self.film.value or "",
@@ -112,6 +119,7 @@ class RollView:
             "date": self.date.value or "",
             "location": _join_list_field([loc for loc in locations if loc]),
             "subjects": _join_list_field([name for name in subjects if name]),
+            "landmarks": _join_list_field([name for name in landmarks if name]),
             "lab": self.lab.value or "",
             "lab_notes": self.lab_notes.value or "",
             # roll.yaml is line-based, so a note stays one line on disk
@@ -123,7 +131,7 @@ class RollView:
         history = _load_history()
         for key in ("film", "camera", "lab", "lab_notes"):
             _record(history, key, data[key])
-        for key in ("lens", "location", "subjects"):
+        for key in ("lens", "location", "subjects", "landmarks"):
             for item in _split_list_field(data[key]):
                 _record(history, key, item)
         _save_history(history)

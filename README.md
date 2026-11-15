@@ -42,14 +42,15 @@ The app runs locally and opens in your browser. Five steps:
 3. **Tagging** — choose frames and let the model describe them. Runs in the background: you can switch tabs, reload or close the browser and the run carries on. Failed frames are listed and stay untagged so they can be retried.
 4. **Review** — one frame at a time. Edits are saved automatically; use ← → or the filmstrip to move between frames. Here you can add what the model cannot know:
    - **Tell the model a fact** ("this is the Parthenon in Athens") and it rewrites description, tags and category, with undo. Facts are stored with the frame and re-applied when it is re-tagged.
-   - **People:** toggle who is in the frame (keys 1–9). New names are added to the roll's subjects.
-   - **Place:** where the frame was taken, written as `Local place, City, Country`. New places are added to the roll's locations.
+   - **People:** toggle who is in the frame (keys 1–9). New names are added to the roll's people.
+   - **Landmarks:** named things in the frame — buildings, monuments, venues ("Neue Nationalgalerie"). Type one once, then toggle it on other frames. A fact that names a landmark adds it for you.
+   - **Place:** where the frame was taken, always `City, Country`. A frame without its own place uses the roll's.
    - ⌘/Ctrl-click or Shift-click frames in the filmstrip to apply any of these to several frames at once.
 5. **Contact sheet** — rebuilt from your edits, with the roll summary refreshed. The folder can be renamed to the standard `date_label` pattern here.
 
 Dark theme by default; start with `--light` for the light one.
 
-The gear icon opens **Settings**: choose the vision and text model, tidy the remembered options (places, people, lenses, cameras, film stocks, labs), and quit the app.
+The gear icon opens **Settings**: choose the vision and text model, tidy the remembered options (places, people, landmarks, lenses, cameras, film stocks, labs) — including moving landmarks that were filed under people, and quit the app.
 
 ---
 

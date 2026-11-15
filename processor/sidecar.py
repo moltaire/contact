@@ -92,14 +92,24 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
     """Write the sidecar for one frame.
 
     Besides the model's output, meta may carry what the photographer added in review:
-      people — names of the people in this frame
-      place  — where this frame was taken (overrides the roll's location list)
-      notes  — facts told to the model ("this is the Parthenon"), kept so a re-tag can reuse them
-    Names and the place are also written as keywords so that other software finds them.
+      people    — names of the people in this frame
+      landmarks — named things in it: buildings, monuments, venues ("Neue Nationalgalerie")
+      place     — where it was taken, as "City, Country" (overrides the roll's location list)
+      notes     — facts told to the model ("this is the Parthenon"), kept so a re-tag can reuse them
+    Names, landmarks and the place are also written as keywords so that other software
+    finds them, and into the standard IPTC fields: sublocation, city, country.
     """
     people = meta.get("people") or []
+    landmarks = meta.get("landmarks") or []
     place = meta.get("place") or ""
-    keywords = list(dict.fromkeys([*meta.get("tags", []), *people, *([place] if place else [])]))
+    keywords = list(dict.fromkeys(
+        [*meta.get("tags", []), *people, *landmarks, *([place] if place else [])]
+    ))
+    # City and country come from the frame's place, or from the roll when it has exactly one
+    roll_locations = [v.strip() for v in roll.get("location", "").split("|") if v.strip()]
+    where = place or (roll_locations[0] if len(roll_locations) == 1 else "")
+    segments = [s.strip() for s in where.split(",") if s.strip()]
+    city, country = (segments[-2], segments[-1]) if len(segments) >= 2 else ("", "")
     tags_xml = "\n".join(f"      <rdf:li>{_xe(t)}</rdf:li>" for t in keywords)
 
     def field(tag: str, value: str) -> str:
@@ -114,6 +124,7 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
         '      xmlns:xmp="http://ns.adobe.com/xap/1.0/"\n'
         '      xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/"\n'
         '      xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"\n'
+        '      xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"\n'
         '      xmlns:film="http://ns.contact.local/1.0/">\n'
         + field("dc:description", meta.get("description", ""))
         + "      <dc:subject>\n"
@@ -122,8 +133,11 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
         + "        </rdf:Bag>\n"
         + "      </dc:subject>\n"
         + field("xmp:CreateDate", roll.get("date", ""))
-        + field("Iptc4xmpCore:Location", place or roll.get("location", ""))
+        + field("Iptc4xmpCore:Location", "; ".join(landmarks) or place or roll.get("location", ""))
+        + field("photoshop:City", city)
+        + field("photoshop:Country", country)
         + _list_field("Iptc4xmpExt:PersonInImage", people)
+        + _list_field("film:landmarks", landmarks)
         + field("film:place", place)
         + _list_field("film:userNotes", meta.get("notes") or [], "Seq")
         + field("film:stock", roll.get("film", ""))
@@ -146,7 +160,7 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
 
 _EMPTY_META = {
     "description": "", "category": "other", "tags": [], "vision_raw": "",
-    "people": [], "place": "", "notes": [],
+    "people": [], "landmarks": [], "place": "", "notes": [],
 }
 
 
@@ -162,17 +176,25 @@ def _read_xmp_meta(xmp_path: Path) -> dict:
     try:
         content = xmp_path.read_text(encoding="utf-8")
     except Exception:
-        return {**_EMPTY_META, "tags": [], "people": [], "notes": []}
+        return {**_EMPTY_META, "tags": [], "people": [], "landmarks": [], "notes": []}
 
     def text(tag: str) -> str:
         m = re.search(rf"<{tag}>(.*?)</{tag}>", content, re.DOTALL)
         return _xe_decode(m.group(1).strip()) if m else ""
 
     people = _read_list(content, "Iptc4xmpExt:PersonInImage")
+    landmarks = _read_list(content, "film:landmarks")
     place = text("film:place")
-    # Names and the place are mirrored into the keywords on write; take them out again
-    # so that `tags` holds only the descriptive tags.
-    mirrored = {*people, place}
+    # Names, landmarks and the place are mirrored into the keywords on write; take them
+    # out again so that `tags` holds only the descriptive tags.
+    mirrored = {*people, *landmarks, place}
+    # Sidecars written before landmarks were their own field hold them inside the place
+    # ("Charles Bridge, Prague, Czechia"): split the local part off.
+    segments = [s.strip() for s in place.split(",") if s.strip()]
+    if len(segments) >= 3:
+        local, place = ", ".join(segments[:-2]), ", ".join(segments[-2:])
+        if local not in landmarks:
+            landmarks = [*landmarks, local]
     return {
         "description": text("dc:description"),
         "category":    text("film:category") or "other",
@@ -180,6 +202,7 @@ def _read_xmp_meta(xmp_path: Path) -> dict:
         # Carried along so that editing a frame doesn't drop the model's original text
         "vision_raw":  text("film:visionRaw"),
         "people":      people,
+        "landmarks":   landmarks,
         "place":       place,
         "notes":       _read_list(content, "film:userNotes"),
     }

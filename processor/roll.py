@@ -53,13 +53,12 @@ def _join_list_field(items: list[str]) -> str:
     return " | ".join(items)
 
 
-# ── Places ────────────────────────────────────────────────────────────────────
+# ── Places, people, landmarks ─────────────────────────────────────────────────
 #
-# Places are written most specific first, comma separated:
-#     City, Country                e.g.  Athens, Greece
-#     Local place, City, Country   e.g.  Parthenon, Athens, Greece
-# The roll's location list holds the "City, Country" level; a frame may add the
-# local place in front.
+# Three separate things:
+#   place     where a frame was taken, always "City, Country"   (Berlin, Germany)
+#   landmarks named things in the frame                          (Neue Nationalgalerie)
+#   people    who is in it                                       (Ines)
 
 
 def _tidy_segment(segment: str) -> str:
@@ -95,24 +94,15 @@ def normalize_name(text: str, known: list[str] | None = None) -> str:
     return name
 
 
-def place_region(place: str) -> str:
-    """The "City, Country" part of a place — what belongs in the roll's location list."""
-    segments = [s.strip() for s in place.split(",") if s.strip()]
-    return ", ".join(segments[-2:])
+def split_place(text: str) -> tuple[str, str]:
+    """Split "Local place, City, Country" into (landmark, "City, Country").
 
-
-def complete_place(place: str, roll_locations: list[str]) -> str:
-    """Append the roll's location to a bare local place when that is unambiguous.
-
-    "Parthenon" on a roll whose only location is "Athens, Greece" becomes
-    "Parthenon, Athens, Greece". With several roll locations, or a place that already
-    has a region, nothing is guessed.
+    Anything in front of the last two parts is a landmark, not part of the place.
     """
-    if place and "," not in place and len(roll_locations) == 1:
-        region = roll_locations[0]
-        if place.casefold() not in {s.strip().casefold() for s in region.split(",")}:
-            return f"{place}, {region}"
-    return place
+    segments = [seg.strip() for seg in (text or "").split(",") if seg.strip()]
+    if len(segments) >= 3:
+        return ", ".join(segments[:-2]), ", ".join(segments[-2:])
+    return "", ", ".join(segments)
 
 
 # ── Folder naming ─────────────────────────────────────────────────────────────
@@ -153,7 +143,8 @@ def build_folder_name(roll: dict) -> str:
 
 
 def _load_history() -> dict:
-    base: dict = {"film": {}, "camera": {}, "lens": {}, "location": {}, "subjects": {}, "lab": {}, "lab_notes": {}}
+    base: dict = {"film": {}, "camera": {}, "lens": {}, "location": {}, "subjects": {},
+                  "landmarks": {}, "lab": {}, "lab_notes": {}}
     try:
         if HISTORY_PATH.exists():
             data = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
@@ -189,7 +180,7 @@ def _history_sorted(history: dict, key: str) -> list:
 
 HISTORY_KEYS = {
     "film": "Film stocks", "camera": "Cameras", "lens": "Lenses", "location": "Places",
-    "subjects": "People", "lab": "Labs", "lab_notes": "Lab notes",
+    "subjects": "People", "landmarks": "Landmarks", "lab": "Labs", "lab_notes": "Lab notes",
 }
 
 
@@ -207,6 +198,18 @@ def rename_history_entry(history: dict, key: str, old: str, new: str) -> None:
         }
     else:
         entries[new] = moved
+
+
+def move_history_entry(history: dict, source: str, target: str, value: str) -> None:
+    """Move a remembered option to another list, e.g. a landmark filed under people."""
+    moved = history.get(source, {}).pop(value, None)
+    if moved is None:
+        return
+    existing = history.setdefault(target, {}).get(value)
+    history[target][value] = moved if existing is None else {
+        "count": existing["count"] + moved["count"],
+        "last": max(existing["last"], moved["last"]),
+    }
 
 
 def delete_history_entry(history: dict, key: str, value: str) -> None:
@@ -338,6 +341,7 @@ def write_roll_yaml(folder: Path, data: dict, preserve_generated: bool = True) -
         f'date:       "{data.get("date", "")}"\n'
         f'location:   "{data.get("location", "")}"\n'
         f'subjects:   "{data.get("subjects", "")}"\n'
+        f'landmarks:  "{data.get("landmarks", "")}"\n'
         f'lab:        "{data.get("lab", "")}"\n'
         f'lab_notes:  "{data.get("lab_notes", "")}"\n'
         f'notes:      "{data.get("notes", "")}"\n'
@@ -418,6 +422,7 @@ def run_roll_setup(folder: Path, prompt_process: bool = True) -> bool:
     write_roll_yaml(folder, {
         "film": film, "camera": camera, "lens": lens, "date": date,
         "location": location, "subjects": subjects, "lab": lab,
+        "landmarks": existing.get("landmarks", ""),
         "lab_notes": lab_notes, "notes": notes, "label": label,
     })
 

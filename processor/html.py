@@ -72,7 +72,8 @@ def write_roll_html(folder: Path, pairs: list, roll: dict) -> None:
         # show up first in the lightbox.
         place = meta.get("place", "")
         tags_str = ", ".join(
-            [*meta.get("people", []), *([place] if place else []), *meta.get("tags", [])]
+            [*meta.get("people", []), *meta.get("landmarks", []),
+             *([place] if place else []), *meta.get("tags", [])]
         )
         search_data = " ".join([
             img_path.name,

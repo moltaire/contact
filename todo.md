@@ -29,6 +29,12 @@
 - [x] Manage the remembered options there (places, lenses, cameras, film stocks, labs, people): rename, merge, delete
 - [x] Quit button that stops the app, so there is no need to close the tab and Ctrl-C the process
 
+### 5. Landmarks as their own class
+- [x] Place is always "City, Country"; landmarks (Neue Nationalgalerie) are chips like people, several per frame
+- [x] Refine fills landmarks from the facts given; sidecars written with a three-part place are split on read
+- [x] Settings: move remembered entries between People and Landmarks
+- [ ] Rolls saved earlier still list landmarks under subjects, and their frames under people — no bulk fix yet
+
 ### Later
 - Tests, cross-roll index and search, contact sheet redesign, coordinates for places, AI-suggested roll label, Ollama install instructions
 

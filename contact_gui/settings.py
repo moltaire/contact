@@ -15,8 +15,12 @@ from processor.roll import (
     _load_history,
     _save_history,
     delete_history_entry,
+    move_history_entry,
     rename_history_entry,
 )
+
+# Landmarks used to be filed under people; these two lists can hand entries to each other.
+_MOVE_TARGET = {"subjects": "landmarks", "landmarks": "subjects"}
 
 from .state import state
 
@@ -82,41 +86,69 @@ class SettingsDialog:
         if not entries:
             ui.label("Nothing remembered yet.").classes("text-sm text-grey-6")
             return
+        # Rows are edited and removed in place — rebuilding the list would throw the
+        # scroll position back to the top after every change.
+        self.rows: dict[str, tuple[ui.row, ui.label]] = {}
         with ui.scroll_area().classes("w-full h-72"):
             for value in entries:
-                used = history[self.list_key][value]
-                with ui.row().classes("w-full items-center no-wrap gap-2"):
-                    field = ui.input(value=value).props("dense outlined").classes("grow")
-                    field.on("keydown.enter", lambda _, f=field, v=value: self._rename(v, f.value))
-                    field.on("blur", lambda _, f=field, v=value: self._rename(v, f.value))
-                    ui.label(f"{used['count']}×").classes("text-xs text-grey-6 mono w-8 text-right")
-                    ui.button(icon="delete_outline",
-                              on_click=lambda _, v=value: self._delete(v)) \
-                        .props("flat dense color=grey-6").tooltip("Forget this entry")
+                self._row(value, history[self.list_key][value]["count"])
+
+    def _row(self, value: str, count: int) -> None:
+        entry = {"value": value}  # the row's current name; it changes when renamed
+        with ui.row().classes("w-full items-center no-wrap gap-2") as row:
+            field = ui.input(value=value).props("dense outlined").classes("grow")
+            field.on("keydown.enter", lambda: self._rename(entry, field))
+            field.on("blur", lambda: self._rename(entry, field))
+            count_label = ui.label(f"{count}×").classes("text-xs text-grey-6 mono w-8 text-right")
+            target = _MOVE_TARGET.get(self.list_key)
+            if target:
+                ui.button(icon="place" if target == "landmarks" else "person",
+                          on_click=lambda: self._move(entry, target)) \
+                    .props("flat dense color=grey-6").tooltip(f"Move to {HISTORY_KEYS[target]}")
+            ui.button(icon="delete_outline", on_click=lambda: self._delete(entry)) \
+                .props("flat dense color=grey-6").tooltip("Forget this entry")
+        self.rows[value] = (row, count_label)
 
     def _pick_list(self, e) -> None:
         self.list_key = e.value
         self._lists.refresh()
 
-    def _rename(self, old: str, new: str) -> None:
-        new = (new or "").strip()
-        if not new or new == old:
+    def _rename(self, entry: dict, field: ui.input) -> None:
+        old, new = entry["value"], (field.value or "").strip()
+        if not new:
+            field.set_value(old)
+            return
+        if new == old:
             return
         history = _load_history()
         merged = new in history.get(self.list_key, {})
         rename_history_entry(history, self.list_key, old, new)
         _save_history(history)
-        ui.notify(f"Merged “{old}” into “{new}”" if merged else f"Renamed to “{new}”")
-        self._changed()
+        row, count_label = self.rows.pop(old)
+        if merged:
+            # This row disappears into the one it was renamed to
+            row.delete()
+            self.rows[new][1].set_text(f"{history[self.list_key][new]['count']}×")
+            ui.notify(f"Merged “{old}” into “{new}”")
+        else:
+            entry["value"] = new
+            field.set_value(new)
+            self.rows[new] = (row, count_label)
+        self.on_lists_changed()
 
-    def _delete(self, value: str) -> None:
+    def _move(self, entry: dict, target: str) -> None:
         history = _load_history()
-        delete_history_entry(history, self.list_key, value)
+        move_history_entry(history, self.list_key, target, entry["value"])
         _save_history(history)
-        self._changed()
+        self.rows.pop(entry["value"])[0].delete()
+        ui.notify(f"Moved “{entry['value']}” to {HISTORY_KEYS[target]}")
+        self.on_lists_changed()
 
-    def _changed(self) -> None:
-        self._lists.refresh()
+    def _delete(self, entry: dict) -> None:
+        history = _load_history()
+        delete_history_entry(history, self.list_key, entry["value"])
+        _save_history(history)
+        self.rows.pop(entry["value"])[0].delete()
         self.on_lists_changed()
 
     # ── Quit ──────────────────────────────────────────────────────────────────

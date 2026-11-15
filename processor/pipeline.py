@@ -124,16 +124,21 @@ def tag_images(
             break
         emit(Event("frame_start", n, total, img))
         try:
-            # What the photographer added in review survives a re-tag: people and place
+            # What the photographer added in review survives a re-tag: people, landmarks and place
             # are carried over, and their notes are applied to the fresh description.
             kept = _read_xmp_meta(img.with_suffix(".xmp")) if is_tagged(img) else {}
             meta = analyze_image(img, vision_model, text_model, roll, verbose)
-            meta.update({k: kept[k] for k in ("people", "place", "notes") if kept.get(k)})
+            meta.update({k: kept[k] for k in ("people", "landmarks", "place", "notes")
+                         if kept.get(k)})
             if meta.get("notes"):
                 meta = refine_frame(img, meta, None, vision_model,
                                     _split_list_field(roll.get("location", "")),
-                                    _split_list_field(roll.get("subjects", "")))
-            meta["tags"] = sanitize_tags(meta["tags"], meta.get("people"), meta.get("place", ""))
+                                    _split_list_field(roll.get("subjects", "")),
+                                    _split_list_field(roll.get("landmarks", "")))
+            meta["tags"] = sanitize_tags(
+                meta["tags"], [*meta.get("people", []), *meta.get("landmarks", [])],
+                meta.get("place", ""),
+            )
             if not dry_run:
                 write_xmp(img, meta, roll)
             result = FrameResult(img, meta)

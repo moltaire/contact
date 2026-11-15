@@ -13,7 +13,13 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from .roll import _split_list_field, complete_place, normalize_place, GENERATED_MARKER
+from .roll import (
+    GENERATED_MARKER,
+    _split_list_field,
+    normalize_name,
+    normalize_place,
+    split_place,
+)
 from .sidecar import _load_image_b64
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -121,14 +127,17 @@ names are written by name ("Ines' birthday", not "someone's birthday").
 - Keep everything else that is still accurate. Do not add details that are neither \
 visible in the image nor stated by the photographer.
 {description_rules}
-{tag_rules} Named things belong in the description and the place, not in the tags: \
-for "the Parthenon" the tag is "temple".
+{tag_rules} Named things belong in the description and the landmarks, not in the \
+tags: for "the Parthenon" the tag is "temple".
 {category_rules}
-- place: where the photo was taken, only if the photographer's facts name a place; \
-otherwise an empty string. Never guess a place. Write it most specific first, comma \
-separated, as "Local place, City, Country" or "City, Country" (for example \
-"Parthenon, Athens, Greece"). A named building, venue or event is the local place. \
-If a known place of this roll fits, end with exactly that."""
+- landmarks: the named buildings, monuments, venues, sites or exhibitions the \
+photographer's facts mention (for example "Parthenon", "Neue Nationalgalerie"), each \
+with its proper spelling. Only names the photographer gave — never guess one from the \
+image. An empty list if they named none.
+- place: the city and country the photo was taken in, as "City, Country" (for example \
+"Athens, Greece"), only if the photographer's facts name the city; otherwise an empty \
+string. Never guess. A landmark is not part of the place. If a known place of this \
+roll fits, use exactly that."""
 
 # ── Answer formats ────────────────────────────────────────────────────────────
 
@@ -145,9 +154,10 @@ _REFINE_SCHEMA = {
     "type": "object",
     "properties": {
         **_ANALYZE_SCHEMA["properties"],
+        "landmarks": {"type": "array", "items": {"type": "string"}},
         "place": {"type": "string"},
     },
-    "required": ["description", "tags", "category", "place"],
+    "required": ["description", "tags", "category", "landmarks", "place"],
 }
 
 # Escalating attempts: full prompt, then a shorter one with a stronger repeat penalty.
@@ -354,21 +364,23 @@ def _is_repetitive(text: str) -> bool:
 
 
 def sanitize_tags(
-    tags: list, people: list[str] | None = None, place: str = "", max_words: int | None = None
+    tags: list, names: list[str] | None = None, place: str = "", max_words: int | None = None
 ) -> list[str]:
-    """Tags are generic keywords: lowercase, unique, and never a person or a place.
+    """Tags are generic keywords: lowercase, unique, and never a person, landmark or place.
 
-    The model is told this too, but it is enforced here. People and places have their
-    own fields; a tag that repeats one of them (or one part of the place, such as the
-    city) is dropped. `max_words` is set for model output only: it also drops over-long
-    phrases and category names.
+    The model is told this too, but it is enforced here. People, landmarks and places
+    have their own fields (`names` takes the people and landmarks of the frame); a tag
+    that repeats one of them, or a part of the place such as the city, is dropped.
+    `max_words` is set for model output only: it also drops over-long phrases and
+    category names.
     """
-    taken = {p.casefold() for p in people or []}
-    place_words: set[str] = set()
+    taken = {n.casefold() for n in names or []}
+    proper_words: set[str] = set()
+    for name in names or []:
+        proper_words |= set(name.casefold().split())
     if place:
         taken |= {place.casefold(), *(seg.strip().casefold() for seg in place.split(","))}
-        # also catches recombinations such as "prague national theatre"
-        place_words = set(place.casefold().replace(",", " ").split())
+        proper_words |= set(place.casefold().replace(",", " ").split())
     clean: list[str] = []
     for item in tags or []:
         # some answers pack every tag into one comma-separated string
@@ -376,10 +388,14 @@ def sanitize_tags(
             tag = " ".join(tag.strip().strip("*`_.#").lower().split())
             if not tag or tag in clean or tag in taken:
                 continue
-            if place_words and set(tag.split()) <= place_words:
+            words = tag.split()
+            # recombinations such as "prague national theatre"; a single generic word
+            # that happens to be part of a name ("tower", "bridge") stays
+            in_place = bool(place) and set(words) <= set(place.casefold().replace(",", " ").split())
+            if in_place or (len(words) > 1 and set(words) <= proper_words):
                 continue
             # model output only: no over-long phrases, no category names posing as tags
-            if max_words and (len(tag.split()) > max_words or tag in VALID_CATEGORIES):
+            if max_words and (len(words) > max_words or tag in VALID_CATEGORIES):
                 continue
             clean.append(tag)
     return clean
@@ -405,6 +421,25 @@ def people_mentioned(text: str, known_people: list[str]) -> list[str]:
         )
         if full or first_only:
             found.append(person)
+    return found
+
+
+def landmarks_mentioned(candidates: list, notes: list[str], known: list[str]) -> list[str]:
+    """Landmarks from the model's answer that the photographer actually named.
+
+    The model may tidy the spelling ("st nicholas" → "St. Nicholas Church") but must not
+    invent a landmark from the image, so at least half of a candidate's words have to
+    occur in the photographer's notes. Spelling follows `known` landmarks where one matches.
+    """
+    note_words = set(re.findall(r"[^\W\d_]+", " ".join(notes).casefold()))
+    found: list[str] = []
+    for candidate in candidates or []:
+        name = normalize_name(str(candidate).strip().strip("."), known)
+        words = re.findall(r"[^\W\d_]+", name.casefold())
+        if not words or sum(w in note_words for w in words) * 2 < len(words):
+            continue
+        if name.casefold() not in {f.casefold() for f in found}:
+            found.append(name)
     return found
 
 
@@ -493,15 +528,17 @@ def refine_frame(
     model: str,
     known_places: list[str] | None = None,
     known_people: list[str] | None = None,
+    known_landmarks: list[str] | None = None,
 ) -> dict:
     """Rewrite a frame's metadata so it reflects facts stated by the photographer.
 
     `note` is a new fact ("this is the Parthenon in Athens"); it is added to the
     notes already stored with the frame and all of them are given to the model, so
     facts accumulate. Pass note=None to re-apply the stored notes, e.g. after a re-tag.
-    `known_places` are the roll's locations ("Athens, Greece"), so that a place the model
-    derives from a note ends in the spelling already in use. `known_people` are the roll's
-    subjects: anyone of them the facts mention is marked as being in the frame.
+
+    The known_* lists are the roll's locations, subjects and landmarks. A place or
+    landmark the facts name is written in the spelling already in use, and anyone from
+    the roll's people that the facts mention is marked as being in the frame.
     Returns a new meta dict; raises RuntimeError if the model gives no usable answer.
     """
     notes = list(meta.get("notes") or [])
@@ -510,11 +547,9 @@ def refine_frame(
     if not notes:
         return dict(meta)
 
-    context = ""
-    if known_places:
-        context += "\nKnown places of this roll: " + "; ".join(known_places)
     # known_people is deliberately not shown to the model: given the list, it writes
     # everyone on it into the description. Who is mentioned is decided in code below.
+    context = "\nKnown places of this roll: " + "; ".join(known_places) if known_places else ""
     prompt = REFINE_PROMPT_TMPL.format(
         category=meta.get("category", "other"),
         tags=", ".join(meta.get("tags", [])) or "(none)",
@@ -529,21 +564,28 @@ def refine_frame(
                     images=[_load_image_b64(path)], schema=_REFINE_SCHEMA)
     answer = _parse_answer(raw)
 
+    # A model that still writes "Parthenon, Athens, Greece" as the place: split it
+    extra_landmark, answered_place = split_place(str(answer.get("place") or ""))
+    candidates = [*(answer.get("landmarks") or []), *([extra_landmark] if extra_landmark else [])]
+    known = [*(meta.get("landmarks") or []), *(known_landmarks or [])]
+    landmarks = list(dict.fromkeys(
+        [*(meta.get("landmarks") or []), *landmarks_mentioned(candidates, notes, known)]
+    ))
     # The photographer's own choice of place wins over one derived from a note
-    place = meta.get("place") or complete_place(
-        normalize_place(str(answer.get("place") or ""), known_places), known_places or []
-    )
+    place = meta.get("place") or normalize_place(answered_place, known_places)
     people = list(dict.fromkeys(
         [*(meta.get("people") or []), *people_mentioned(" ".join(notes), known_people or [])]
     ))
 
-    tags = sanitize_tags(answer.get("tags"), people, place, max_words=_MAX_TAG_WORDS)
+    names = [*people, *landmarks]
+    tags = sanitize_tags(answer.get("tags"), names, place, max_words=_MAX_TAG_WORDS)
     return {
         **meta,
         "description": answer["description"],
-        "tags": tags or sanitize_tags(meta.get("tags"), people, place),
+        "tags": tags or sanitize_tags(meta.get("tags"), names, place),
         "category": answer["category"],
         "place": place,
+        "landmarks": landmarks,
         "people": people,
         "notes": notes,
     }
