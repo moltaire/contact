@@ -86,6 +86,8 @@ class State:
             Path(saved_root) if saved_root and Path(saved_root).is_dir() else None
         )
         self.library: list[Roll] | None = None
+        # the roll page's summary, folded away or not (remembered across runs)
+        self.summary_open: bool = self._load_settings().get("summary_open", True) is not False
 
     # ── Folder ────────────────────────────────────────────────────────────────
 
@@ -179,6 +181,10 @@ class State:
         the event loop."""
         if self.library_root is not None:
             self.library = scan_library(self.library_root, self.library)
+
+    def set_summary_open(self, on: bool) -> None:
+        self.summary_open = on
+        self._save_settings(summary_open=on)
 
     def _save_settings(self, **changes) -> None:
         """Update some settings and keep the rest."""

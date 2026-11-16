@@ -44,7 +44,7 @@ The app runs locally and opens in your browser. The browser's back and forward b
 
 **A frame** — click one to see it large, over the library or a roll's page. ← → step through the frames shown (search results run across rolls), `S` marks a favourite, `[` `]` rotate, `R` opens its roll, Esc goes back to where you were. `E` switches between **View** and **Edit**; Edit adds the filmstrip and the editing tools below, and the app remembers which one you used last. Click a roll card to see just that roll's frames; the arrow on the card opens the roll itself.
 
-**A roll** opens from the library, or with **New roll** for a folder of new scans, on one page under a breadcrumb back to the library. It shows the roll at a glance (film, camera, lenses, lab, location, people, landmarks and the summary) and every frame in a grid.
+**A roll** opens from the library, or with **New roll** for a folder of new scans, on one page under a breadcrumb back to the library. It shows the roll at a glance (film, camera, lenses, lab, location, people, landmarks), your notes, the generated summary (click **summary** to fold it away; the app remembers) and every frame in a grid.
 
 - **Edit info** turns the roll's facts into a form right there, with the frames still in view; Save or Esc closes it. A new roll opens with the form.
 - **Tag N new frames** starts tagging: it runs in the background, frames fill in as they finish, and you can switch tabs, reload or close the browser meanwhile.

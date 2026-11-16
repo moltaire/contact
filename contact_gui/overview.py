@@ -97,7 +97,8 @@ class OverviewView:
 
         # two columns: the gear on the left, where and who on the right
         left = [("film", roll.get("film", "")), ("camera", roll.get("camera", "")),
-                ("lenses", listed("lens")), ("lab", roll.get("lab", ""))]
+                ("lenses", listed("lens")), ("lab", roll.get("lab", "")),
+                ("lab notes", roll.get("lab_notes", ""))]
         right = [("location", listed("location")), ("people", listed("subjects")),
                  ("landmarks", listed("landmarks"))]
         left, right = [r for r in left if r[1]], [r for r in right if r[1]]
@@ -110,9 +111,27 @@ class OverviewView:
                                 ui.label(key).classes("overview-fact-key")
                                 ui.label(value)
 
-        summary = roll.get("summary", "")
-        if summary:
-            ui.label(summary).classes("overview-summary")
+        # the photographer's own notes, in full; the generated summary below, foldable
+        notes = roll.get("notes", "").strip()
+        if notes:
+            ui.label(notes).classes("overview-notes")
+        if roll.get("summary", ""):
+            self._summary()
+
+    @ui.refreshable_method
+    def _summary(self) -> None:
+        open_ = state.summary_open
+        with ui.element("div").classes("overview-summary-block"):
+            with ui.row().classes("items-center gap-1 overview-summary-toggle no-wrap") \
+                    .on("click", self._toggle_summary):
+                ui.icon("expand_more" if open_ else "chevron_right", size="xs")
+                ui.label("summary")
+            if open_:
+                ui.label(state.roll.get("summary", "")).classes("overview-summary")
+
+    def _toggle_summary(self) -> None:
+        state.set_summary_open(not state.summary_open)
+        self._summary.refresh()
 
     @ui.refreshable_method
     def _actions(self) -> None:

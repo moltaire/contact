@@ -193,13 +193,21 @@ body.body--light .library-card-sub, body.body--light .library-year {{ color: #6b
 .overview-fact-column {{ display: flex; flex-direction: column; gap: 4px; min-width: 0; }}
 .overview-fact {{ display: grid; grid-template-columns: 6rem minmax(0, 1fr); font-size: 0.88rem; line-height: 1.45; }}
 .overview-fact-key {{ font-family: {_MONO}; font-size: 0.75rem; letter-spacing: 0.04em; color: {ALUMINIUM}; padding-top: 1px; }}
-.overview-summary {{ max-width: 46rem; line-height: 1.55; font-size: 0.88rem; color: {ALUMINIUM}; margin-top: 16px; }}
+.overview-notes {{ max-width: 46rem; line-height: 1.55; font-size: 0.92rem; margin-top: 16px; white-space: pre-line; }}
+.overview-summary-block {{ margin-top: 14px; max-width: 46rem; }}
+.overview-summary-toggle {{
+    font-family: {_MONO}; font-size: 0.75rem; letter-spacing: 0.04em; color: {ALUMINIUM};
+    cursor: pointer; user-select: none; width: fit-content; margin-left: -3px;
+}}
+.overview-summary-toggle:hover {{ color: {ORANGE}; }}
+.overview-summary {{ line-height: 1.55; font-size: 0.88rem; color: {ALUMINIUM}; margin-top: 4px; }}
 .overview-job {{ border: 1px solid {EDGE}; border-radius: 3px; padding: 8px 10px; margin-top: 20px; max-width: 30rem; }}
 .overview-actions {{ margin-top: 20px; min-height: 2.25rem; }}
 .overview-hint {{ font-size: 0.8rem; color: {ALUMINIUM}; margin-left: 6px; }}
 .overview-footer {{ font-family: {_MONO}; font-size: 0.7rem; color: {ALUMINIUM}; margin-top: 20px; }}
 body.body--light .overview-counts, body.body--light .overview-fact-key,
 body.body--light .overview-summary, body.body--light .overview-hint,
+body.body--light .overview-summary-toggle,
 body.body--light .overview-footer {{ color: #6b6a66; }}
 .overview-grid {{
     display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
