@@ -8,16 +8,20 @@ from nicegui import ui
 
 # (keys, what they do) per section. A key written as "a b" renders as two key caps.
 _SECTIONS = {
-    "Review": [
+    "A frame (view and edit)": [
         ("← →", "Previous / next frame"),
-        ("Return", "Open the entry line"),
-        ("T P L W F", "Open it for tags, people, landmarks, where, or a fact"),
-        ("1 … 9", "Toggle a person on the frame"),
-        ("S", "Favourite the frame (shared with the contact sheet)"),
-        ("A", "Select all frames"),
-        ("Esc", "Clear the selection"),
-        ("⌘ click", "Add a frame to the selection (Ctrl on Windows and Linux)"),
-        ("⇧ click", "Select a range of frames"),
+        ("E", "Switch between View and Edit"),
+        ("S", "Favourite (shared with the contact sheet)"),
+        ("[ ]", "Rotate left / right (only the scan's orientation flag)"),
+        ("R", "Open the frame's roll"),
+        ("Esc", "Leave a field, clear the selection, then go back"),
+        ("Return", "Edit: open the entry line ( / works too)"),
+        ("T P L W F", "Edit: entry line for tags, people, landmarks, where, a fact"),
+        ("1 … 9", "Edit: toggle a person of the roll"),
+        ("A", "Edit: select all frames"),
+        ("⌘ click", "Edit: add a frame to the selection (Ctrl on Windows and Linux)"),
+        ("⇧ click", "Edit: select a range of frames"),
+        ("⇧ ← →", "Edit: step and extend the selection"),
     ],
     "In the entry line": [
         ("Tab", "Empty line: next mode (⇧ Tab goes back)"),
@@ -25,13 +29,17 @@ _SECTIONS = {
         ("Return", "Apply, and leave the line"),
         ('"a, b"', "Quotes keep a comma inside one tag or landmark"),
         ("Backspace", "Empty line: remove the last entry of this mode"),
-        ("Esc", "Leave without applying"),
         ("/person Name", "In fact mode: set a field with a command"),
         ("/pe /l /pl /t", "Short forms of /person /landmark /place /tag"),
     ],
+    "A roll": [
+        ("Esc", "Cancel picking, close the form, then back to the library"),
+    ],
     "Library": [
         ("Return", "Jump to the search box ( / works too)"),
+        ("V", "Switch between Rolls and Frames"),
         ("film:hp5", "Limit a word to a field: person, place, tag, film, camera, date"),
+        ("click a roll", "Show its frames; the → on the card opens the roll's page"),
     ],
     "Anywhere": [
         ("?", "Show or hide this overview"),

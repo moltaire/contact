@@ -102,7 +102,7 @@ body.body--light .entry-mode {{ color: {ORANGE_DEEP}; border-right-color: #d5d4c
 body.body--light .sheet-row {{ border-top-color: #d5d4cf; }}
 .sheet-key {{
     font-family: {_MONO}; font-size: 0.72rem; letter-spacing: 0.06em; color: {ALUMINIUM};
-    width: 4.5rem; flex: none; line-height: 1.5rem;
+    width: 5.5rem; flex: none; line-height: 1.5rem;
 }}
 body.body--light .sheet-key {{ color: #6b6a66; }}
 .sheet-key.cursor-pointer:hover {{ color: {ORANGE}; }}
@@ -114,6 +114,32 @@ body.body--light .sheet-key {{ color: #6b6a66; }}
 .sheet-select {{ font-size: 0.82rem; min-width: 9rem; }}
 .sheet-select .q-field__control, .sheet-select .q-field__native {{ min-height: 1.6rem; height: 1.6rem; padding: 0; }}
 .sheet-select .q-field__marginal {{ height: 1.6rem; }}
+
+/* Two-way switches (View/Edit, Rolls/Frames) */
+/* Pills, not boxes: a rounded orange-on-black rectangle reads as a well-known
+   website's logo */
+.mode-toggle {{
+    border: 1px solid {EDGE}; border-radius: 999px; padding: 2px; position: relative;
+    display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr;  /* equal halves */
+}}
+.mode-toggle .q-btn {{
+    padding: 3px 14px; min-height: 0; border-radius: 999px !important;
+    position: relative; z-index: 1;
+    transition: color 180ms ease;
+}}
+/* The pill itself slides under the labels to the chosen half */
+.mode-toggle::before {{
+    content: ""; position: absolute; top: 2px; bottom: 2px; left: 2px;
+    width: calc(50% - 2px); border-radius: 999px; background: var(--q-primary);
+    transition: transform 180ms ease;
+}}
+/* The chosen half is marked bg-transparent (toggle-color=transparent): the sliding
+   pill is the only orange, so it keeps its size, like a physical slider */
+.mode-toggle:has(> .q-btn:last-child.bg-transparent)::before {{ transform: translateX(100%); }}
+.mode-toggle .q-btn:not(.bg-transparent) {{ color: {LETTERING}; }}
+body.body--light .mode-toggle .q-btn:not(.bg-transparent) {{ color: {BODY}; }}
+body.body--light .mode-toggle .q-btn.bg-transparent {{ color: #fff !important; }}
+body.body--light .mode-toggle {{ border-color: #d5d4cf; }}
 
 /* Library: roll cards (miniature contact sheets), frame grids, filters */
 .library-year {{
@@ -150,6 +176,94 @@ body.body--light .sheet-key {{ color: #6b6a66; }}
 body.body--light .library-year, body.body--light .library-roll {{ border-top-color: #d5d4cf; }}
 body.body--light .library-filters {{ border-color: #d5d4cf; }}
 body.body--light .library-card-sub, body.body--light .library-year {{ color: #6b6a66; }}
+
+/* Library: one roll's frames */
+.library-focus {{ border-bottom: 1px solid {EDGE}; padding-bottom: 8px; }}
+.library-hit-box {{ position: relative; }}
+.library-untagged {{ opacity: 0.45; }}
+
+/* Roll overview: title, facts in two columns, summary, one row of actions, frames */
+.overview {{ max-width: 62rem; }}
+.overview-title {{ font-weight: 600; font-size: 1.5rem; }}
+.overview-counts {{ font-family: {_MONO}; font-size: 0.8rem; color: {ALUMINIUM}; }}
+.overview-facts {{
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px;
+    margin-top: 16px; max-width: 52rem;
+}}
+.overview-fact-column {{ display: flex; flex-direction: column; gap: 4px; min-width: 0; }}
+.overview-fact {{ display: grid; grid-template-columns: 6rem minmax(0, 1fr); font-size: 0.88rem; line-height: 1.45; }}
+.overview-fact-key {{ font-family: {_MONO}; font-size: 0.75rem; letter-spacing: 0.04em; color: {ALUMINIUM}; padding-top: 1px; }}
+.overview-summary {{ max-width: 46rem; line-height: 1.55; font-size: 0.88rem; color: {ALUMINIUM}; margin-top: 16px; }}
+.overview-job {{ border: 1px solid {EDGE}; border-radius: 3px; padding: 8px 10px; margin-top: 20px; max-width: 30rem; }}
+.overview-actions {{ margin-top: 20px; min-height: 2.25rem; }}
+.overview-hint {{ font-size: 0.8rem; color: {ALUMINIUM}; margin-left: 6px; }}
+.overview-footer {{ font-family: {_MONO}; font-size: 0.7rem; color: {ALUMINIUM}; margin-top: 20px; }}
+body.body--light .overview-counts, body.body--light .overview-fact-key,
+body.body--light .overview-summary, body.body--light .overview-hint,
+body.body--light .overview-footer {{ color: #6b6a66; }}
+.overview-grid {{
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 12px; width: 100%; margin-top: 24px; user-select: none; -webkit-user-select: none;
+}}
+.overview-frame {{ position: relative; cursor: pointer; }}
+.overview-frame img {{
+    width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block;
+    background: #0a0a0a; border-radius: 2px;
+}}
+.overview-frame:hover img {{ outline: 2px solid {ORANGE}; outline-offset: 2px; }}
+.overview-name {{ font-family: {_MONO}; font-size: 0.68rem; color: {ALUMINIUM}; margin-top: 3px; }}
+.overview-untagged img {{ opacity: 0.4; border: 1px dashed {ALUMINIUM}; }}
+.overview-working img {{ outline: 2px solid {ORANGE}; outline-offset: 2px; opacity: 1; }}
+.overview-picking .overview-frame img {{ opacity: 0.55; }}
+.overview-picking .overview-frame:hover img {{ opacity: 0.8; }}
+.overview-picking .overview-selected img, .overview-selected img {{
+    outline: 3px solid {ORANGE}; outline-offset: 2px; opacity: 1;
+}}
+
+/* Roll info form */
+.roll-form {{ max-width: 52rem; }}
+.overview-form {{ margin-top: 18px; width: 52rem; max-width: 100%; }}
+
+/* Header breadcrumb */
+.crumb {{ color: {ALUMINIUM}; }}
+.crumb:hover {{ color: {ORANGE}; }}
+body.body--light .crumb {{ color: #6b6a66; }}
+
+/* Frame overlay: full screen over the library or a roll's overview.
+   The same skeleton in View and Edit; Edit only adds the entry line and the strip. */
+.frame-overlay {{
+    display: flex; flex-direction: column; width: 100vw; height: 100vh;
+    background: {BODY}; color: {LETTERING};
+}}
+.frame-top {{ padding: 10px 24px; border-bottom: 1px solid {EDGE}; flex: none; }}
+.frame-origin {{ max-width: 22rem; }}
+.frame-origin .q-btn__content {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-wrap: nowrap; }}
+.frame-roll {{ font-weight: 600; font-size: 0.9rem; }}
+
+.frame-roll:hover {{ color: {ORANGE}; }}
+.frame-main {{ display: flex; flex: 1; min-height: 0; gap: 32px; padding: 28px 32px 24px; }}
+.frame-stage {{ flex: 1; min-width: 0; height: 100%; background: #0a0a0a; border-radius: 2px; }}
+.frame-image {{ width: 100%; height: 100%; }}
+.frame-image img {{ object-fit: contain; }}
+.frame-side {{
+    width: 400px; flex: none; height: 100%; overflow-y: auto; overflow-x: hidden;
+    display: flex; flex-direction: column; gap: 12px;
+}}
+/* The description reads the same in View (a box) and Edit (a textarea): same text,
+   same line spacing, the label and first line in the same place */
+.frame-description {{ height: 8.75rem; overflow-y: auto; flex: none; padding: 4px 11px 8px; }}
+.frame-description .field-box-label {{ margin: 5px 0 1px; line-height: 16px; }}
+.frame-description, .frame-side .q-textarea textarea {{
+    font-size: 14px; line-height: 1.5; letter-spacing: 0.00938em;
+}}
+/* Quasar draws the floated label as 16px text scaled to 75%, which renders differently
+   from plain 12px text; make it plain 12px, in the same place */
+.frame-side .q-textarea.q-field--float .q-field__label {{
+    font-size: 12px; transform: translateY(-6.5px); letter-spacing: 0.13px; line-height: 13.8px;
+}}
+.frame-description .field-box-label {{ letter-spacing: 0.13px; }}
+.frame-candidates {{ min-height: 5.25rem; flex: 0 1 auto; overflow: hidden; }}
+.frame-strip {{ flex: none; padding: 6px 32px 20px; }}
 
 /* Keyboard shortcuts overlay */
 .help-card {{ width: 860px; max-width: 94vw; padding: 20px 24px; gap: 16px; }}

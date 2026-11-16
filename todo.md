@@ -60,12 +60,31 @@ Decisions: all processed rolls live in ONE parent folder (set it in Settings). T
 - [x] Shift-click in the filmstrip no longer selects page text
 - [x] Page loads no longer wait for Ollama (caused 500 errors while the model was busy)
 
-### 9. To plan: how the library and a single roll fit together
-Clicking a frame in the library jumps into review with no way back. Ideas so far:
-- a viewer that steps through the search results (← →), on top of the library
-- from the viewer: open this frame in review, or open its roll — and a way back to the results
-- the roll steps (folder, roll info, tagging, review, sheet) may need to read as "inside a roll", with the library as home
-- first load of a real library (19 rolls) takes ~10 s while previews are generated; consider generating them in the background or on disk
+### 9. Library as home, viewer, browser back (built 2026-11-16)
+- [x] The library is home; a roll opens under a breadcrumb "library › roll" with its steps; the Folder step is gone ("New roll" opens a folder)
+- [x] Viewer over the library: ← → through the frames shown, S favourite, E edit in review, R open roll, Esc back
+- [x] Browser back/forward between library, viewer and roll steps (history.pushState + popstate → "contact_nav")
+- [x] Previews kept on disk in ~/.cache/contact/previews and decoded at reduced scale (~100× faster); card previews made in the background after a scan
+- [x] Rotate in review with [ and ] — only the JPEG's EXIF orientation flag changes (processor/orientation.py, tested on copies of real scans)
+- [ ] Rotation of TIFF/PNG (none in the library yet)
+- [ ] Contact sheet: images are cached by the browser, so a rotated frame may show the old way until the page is reloaded
+
+### 10. Roll pages and the two flows (built 2026-11-16)
+- [x] A roll has three pages: Overview (default), Info, Edit (was Review); Tagging and Contact sheet steps folded into the Overview
+- [x] Overview: roll at a glance, all frames (untagged dashed, favourites starred), "Tag N new frames" with live progress, select to re-tag/un-tag, open contact sheet, rename folder, move into library
+- [x] Clicking a roll card in the library shows its frames there; the arrow on the card (and R in the viewer) opens the roll's overview
+- [x] Leaving Edit rebuilds the contact sheet and refreshes the roll summary in the background
+- [x] Edit column no longer scrolls sideways
+- [ ] README screenshots still show the old steps — retake
+
+### 11. One frame view (built 2026-11-16)
+- [x] Viewer and Edit page merged into one overlay (`contact_gui/frames.py`): View by default, E toggles Edit (remembered), filmstrip only in Edit
+- [x] Opens over the library (roll or search results, editing across rolls) and over a roll's overview; Esc and browser back return there
+- [x] Every edited roll gets its contact sheet rebuilt and its summary refreshed on close
+- [x] Favourite button without the redundant checkmark
+- [x] Look: frame view keeps the old review's spacing (padded image stage, description box in both modes, sheet people/landmarks/place/tags/category, no hint text); overview with facts in two columns and one row of actions; "Re-tag frames…" switches the grid to picking; Info as a two-column form
+- [x] Roll info is a form in place on the roll page (Edit info); the Info tab is gone, a new roll opens with the form; Esc on the roll page steps out to the library
+- [ ] Later: the HTML contact sheet could mirror the roll page (it is basically the contact sheet now)
 
 ### Later
 - Tests, cross-roll index and search, contact sheet redesign, coordinates for places, AI-suggested roll label, Ollama install instructions

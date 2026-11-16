@@ -6,19 +6,20 @@ The library: every roll in one parent folder, shown as pictures.
 Two views of the same thing, switched with a toggle:
   Rolls   one card per roll — a miniature contact sheet of eight frames — grouped by year
   Frames  the frames themselves, grouped by roll
-Both follow the search box and the filters. Clicking a roll opens it; clicking a frame
-opens its roll in review at that frame.
+Both follow the search box and the filters. Clicking a roll card shows that roll's
+frames here; the button on the card opens the roll's own page. Clicking a frame opens
+the frame overlay (contact_gui/frames.py) on the frames shown.
 """
 
 from collections.abc import Callable
 from pathlib import Path
 
-from nicegui import run, ui
+from nicegui import background_tasks, run, ui
 
-from processor.library import Hit, Roll, all_frames, facets, search
+from processor.library import Frame, Hit, Roll, all_frames, facets, search
 
 from .files import library_thumb_url
-from .folder import _pick_folder_dialog
+from .folder import pick_folder
 from .state import display_path, state
 
 _CARD_FRAMES = 8     # frames on a roll card: two rows of four
@@ -37,15 +38,37 @@ def _img(url: str, classes: str) -> ui.element:
     return ui.element("img").props(f'src="{url}" loading="lazy" draggable="false"').classes(classes)
 
 
+def _roll_hits(roll: Roll) -> list[Hit]:
+    """Every image of a roll as a viewer item; untagged ones have no metadata yet."""
+    meta = {f.image: f for f in roll.frames}
+    return [Hit(roll, meta.get(image) or Frame(image, {})) for image in roll.images]
+
+
 class LibraryView:
-    def __init__(self, on_open: Callable[..., None]) -> None:
-        # on_open(roll folder, frame file name or None, tab=None): open a roll, in review
-        # at a frame, or on a given step such as "roll" for its roll info
+    def __init__(self, on_open: Callable[..., bool],
+                 on_nav_change: Callable[[bool], None], overlay) -> None:
+        # on_open(roll folder, frame file name or None, tab=None): open a roll's page
         self.on_open = on_open
+        self.on_nav_change = on_nav_change  # record the place in the browser history
         self.query = ""
         self.view = "Rolls"
         self.show_filters = False
+        self.focus: Path | None = None      # a roll whose frames are shown on their own
         self._loading = False
+        self.overlay = overlay  # the frame overlay, shared with the roll overview
+
+    def set_focus(self, folder: Path | None, record: bool = False) -> None:
+        """Show one roll's frames (a roll card was clicked), or all rolls again (None)."""
+        if folder == self.focus:
+            return
+        self.focus = folder
+        # a roll shown from the list has the list right behind it in the history
+        self._focus_pushed = folder is not None
+        if hasattr(self, "_body"):
+            self._body.refresh()
+        if record:
+            self.on_nav_change(False)
+            ui.run_javascript("window.scrollTo(0, 0)")
 
     @ui.refreshable_method
     def render(self) -> None:
@@ -60,8 +83,10 @@ class LibraryView:
             self.search.value = self.query
             self.search.on("clear", lambda: self._search(""))
             self.search.on_value_change(lambda e: self._search(e.value))
-            ui.toggle(["Rolls", "Frames"], value=self.view, on_change=self._set_view) \
-                .props("dense no-caps unelevated toggle-color=primary toggle-text-color=black")
+            self.view_toggle = ui.toggle(["Rolls", "Frames"], value=self.view,
+                                         on_change=self._set_view) \
+                .props("dense no-caps unelevated toggle-color=transparent toggle-text-color=black") \
+                .classes("mode-toggle").tooltip("V")
             ui.button("Filters", icon="tune", on_click=self._toggle_filters) \
                 .props("flat dense color=grey-6")
 
@@ -96,7 +121,7 @@ class LibraryView:
         dialog.open()
 
     async def _browse(self) -> None:
-        picked = await run.io_bound(_pick_folder_dialog)
+        picked = await run.io_bound(pick_folder, "Select the library folder")
         if picked:
             self._set_root(picked)
 
@@ -115,6 +140,14 @@ class LibraryView:
         await run.io_bound(state.refresh_library)
         self._loading = False
         self.render.refresh()
+        self._warm_previews()
+
+    def _warm_previews(self) -> None:
+        """Make the card previews in the background, so they are ready on disk next time."""
+        from .files import warm_previews
+        rolls = state.library or []
+        images = [img for r in rolls for img in list(dict.fromkeys([*r.starred, *r.images]))[:_CARD_FRAMES]]
+        background_tasks.create(run.io_bound(warm_previews, images, 160), name="previews")
 
     async def reload(self) -> None:
         """Pick up rolls that were added or edited; unchanged rolls are not read again."""
@@ -123,6 +156,8 @@ class LibraryView:
         self._loading = True
         await run.io_bound(state.refresh_library)
         self._loading = False
+        if self.overlay.is_open:
+            return  # redrawing would change the frames the overlay steps through
         self.render.refresh()
 
     # ── Search, view and filters ──────────────────────────────────────────────
@@ -137,6 +172,11 @@ class LibraryView:
     def _set_view(self, e) -> None:
         self.view = e.value or "Rolls"
         self._body.refresh()
+
+    def toggle_view(self) -> None:
+        """V: Rolls ⇄ Frames. Through the switch, so it slides and calls _set_view."""
+        if getattr(self, "view_toggle", None) is not None and not self.view_toggle.is_deleted:
+            self.view_toggle.set_value("Frames" if self.view == "Rolls" else "Rolls")
 
     def _toggle_filters(self) -> None:
         self.show_filters = not self.show_filters
@@ -200,6 +240,10 @@ class LibraryView:
                      "roll.yaml or tagged frames.").classes("text-grey-7")
             return
         searching = bool(self.query.strip())
+        focused = next((r for r in rolls if r.folder == self.focus), None)
+        if focused is not None:
+            self._roll_frames(focused, searching)
+            return
         hits = search(rolls, self.query) if searching else all_frames(rolls)
         by_roll: dict[int, list[Hit]] = {}
         for hit in hits:
@@ -219,6 +263,71 @@ class LibraryView:
         else:
             self._frame_groups(shown, by_roll)
 
+    def _roll_frames(self, roll: Roll, searching: bool) -> None:
+        """One roll's frames, as clicked from its card. Search narrows them further."""
+        everything = _roll_hits(roll)
+        if searching:
+            found = {id(h.frame) for h in search([roll], self.query)}
+            hits = [h for h in everything if id(h.frame) in found]
+        else:
+            hits = everything
+        with ui.row().classes("w-full items-center no-wrap gap-3 library-focus"):
+            ui.button("All rolls", icon="arrow_back", on_click=lambda: self.on_back()) \
+                .props("flat dense no-caps color=grey-5")
+            with ui.column().classes("gap-0 grow min-w-0"):
+                ui.label(roll.label).classes("library-card-title truncate w-full")
+                ui.label(" · ".join(v for v in [
+                    roll.date, roll.info.get("film", ""), roll.info.get("camera", ""),
+                    _short(roll.locations),
+                    f"{len(hits)} of {roll.image_count} frames" if searching
+                    else f"{roll.image_count} frames"] if v)).classes("library-card-sub truncate w-full")
+            ui.button("Open roll", icon="arrow_forward",
+                      on_click=lambda: self.on_open(roll.folder)) \
+                .props("unelevated no-caps").tooltip("Tag, edit, contact sheet, rename")
+        if not hits:
+            ui.label("No frames of this roll match the search.").classes("text-grey-7")
+            return
+        with ui.element("div").classes("library-frames mt-2"):
+            for n, hit in enumerate(hits):
+                classes = "library-hit" + ("" if hit.frame.meta else " library-untagged")
+                with ui.element("div").classes("library-hit-box" +
+                                               (" frame-starred" if hit.frame.meta.get("starred")
+                                                else "")):
+                    _img(library_thumb_url(hit.frame.image, 320), classes) \
+                        .on("click", lambda n=n: self.open_frames(hits, n, roll=roll))
+
+    def open_frames(self, items: list[Hit], index: int, roll: Roll | None = None) -> None:
+        """Open the frame overlay on these frames: one roll's, or the search results."""
+        if roll is not None:
+            origin = {"from": "library", "scope": "roll", "roll": str(roll.folder)}
+            label = roll.label
+        else:
+            origin = {"from": "library", "scope": "results", "q": self.query}
+            label = f"Search: {self.query.strip()}" if self.query.strip() else "Library"
+        self.overlay.open(items, index, origin, label)
+
+    def items_for(self, origin: dict) -> tuple[list[Hit], str]:
+        """The frames an overlay opened from the library stepped through, rebuilt for the
+        browser history (back/forward)."""
+        rolls = state.library or []
+        if origin.get("scope") == "roll":
+            roll = next((r for r in rolls if str(r.folder) == origin.get("roll")), None)
+            return (_roll_hits(roll), roll.label) if roll else ([], "")
+        query = origin.get("q", "")
+        hits = search(rolls, query) if query.strip() else all_frames(rolls)
+        shown = []
+        for roll in rolls:  # the order the Frames view shows them in
+            shown += [h for h in hits if h.roll is roll]
+        return shown[:_MAX_FRAMES], (f"Search: {query.strip()}" if query.strip() else "Library")
+
+    def on_back(self) -> None:
+        """"All rolls": back in the browser history if the roll was opened from there."""
+        if getattr(self, "_focus_pushed", False):
+            ui.run_javascript("history.back()")
+        else:
+            self.set_focus(None)
+            self.on_nav_change(True)
+
     def _roll_cards(self, rolls: list[Roll], matches: dict[int, list[Hit]]) -> None:
         years: dict[str, list[Roll]] = {}
         for roll in rolls:
@@ -233,11 +342,16 @@ class LibraryView:
         # matching frames first, then the roll's favourites, then the rest in order
         first = [hit.frame.image for hit in matched or []]
         images = list(dict.fromkeys([*first, *roll.starred, *roll.images]))[:_CARD_FRAMES]
+        hits = _roll_hits(roll)
+        position = {h.frame.image: n for n, h in enumerate(hits)}
         with ui.element("div").classes("library-card") \
-                .on("click", lambda: self.on_open(roll.folder, None)):
+                .on("click", lambda: self.set_focus(roll.folder, record=True)):
             with ui.element("div").classes("library-sheet"):
                 for image in images:
-                    _img(library_thumb_url(image, 160), "library-frame")
+                    # a frame opens the viewer on this roll; the rest of the card opens it
+                    _img(library_thumb_url(image, 160), "library-frame") \
+                        .on("click.stop", lambda n=position[image], hits=hits, roll=roll:
+                            self.open_frames(hits, n, roll=roll))
                 for _ in range(_CARD_FRAMES - len(images)):
                     ui.element("div").classes("library-frame library-frame-empty")
             count = (f"{len(matched)} of {len(roll.frames)} match" if matched is not None
@@ -247,14 +361,17 @@ class LibraryView:
                     ui.label(roll.label).classes("library-card-title truncate w-full")
                     ui.label(" · ".join(v for v in [roll.date, roll.info.get("film", ""), count]
                                         if v)).classes("library-card-sub truncate w-full")
-                # straight to the roll's info instead of review; .stop keeps the card's
-                # own click from firing as well
-                ui.button(icon="edit_note") \
+                # the roll's own page; .stop keeps the card's own click (browse its
+                # frames here) from firing as well
+                ui.button(icon="arrow_forward") \
                     .props("flat dense round size=sm color=grey-6").classes("library-card-info") \
-                    .on("click.stop", lambda: self.on_open(roll.folder, None, tab="roll")) \
-                    .tooltip("Roll info")
+                    .on("click.stop", lambda: self.on_open(roll.folder)) \
+                    .tooltip("Open roll")
 
     def _frame_groups(self, rolls: list[Roll], by_roll: dict[int, list[Hit]]) -> None:
+        # the viewer steps through exactly the frames on screen, in this order
+        shown = [hit for roll in rolls for hit in by_roll.get(id(roll), [])][:_MAX_FRAMES]
+        position = {id(hit): n for n, hit in enumerate(shown)}
         budget = _MAX_FRAMES
         for roll in rolls:
             group = by_roll.get(id(roll), [])
@@ -267,7 +384,7 @@ class LibraryView:
             group, budget = group[:budget], budget - len(group)
             with ui.row().classes("w-full items-baseline gap-3 library-roll"):
                 ui.label(roll.label).classes("mono font-bold cursor-pointer") \
-                    .on("click", lambda roll=roll: self.on_open(roll.folder, None))
+                    .on("click", lambda roll=roll: self.on_open(roll.folder))
                 ui.label(" · ".join(v for v in [roll.date, roll.info.get("film", ""),
                                                  _short(roll.locations)] if v)) \
                     .classes("mono text-xs text-grey-6")
@@ -277,5 +394,5 @@ class LibraryView:
                 for hit in group:
                     # no caption or tooltip: the frame speaks for itself
                     _img(library_thumb_url(hit.frame.image, 320), "library-hit") \
-                        .on("click", lambda hit=hit: self.on_open(hit.roll.folder,
-                                                                  hit.frame.image.name))
+                        .on("click", lambda n=position[id(hit)]:
+                            self.open_frames(shown, n))

@@ -78,6 +78,7 @@ class State:
         self.vision_model: str = FALLBACK_MODEL
         self.text_model: str = FALLBACK_MODEL
         self.job: Job | None = None
+        self.frame_edit_mode = False  # the frame overlay opens in Edit if it was left there
         self.edited_since_summary = False  # set by review, cleared when the summary is rewritten
         # The folder that holds all roll folders, and the last scan of it (None = not read yet)
         saved_root = self._load_settings().get("library")
@@ -132,23 +133,14 @@ class State:
         return list(dict.fromkeys([*self.roll_values(key), *_history_sorted(_load_history(), key)]))
 
     def add_roll_values(self, key: str, values: list[str]) -> bool:
-        """Add names found during review to the roll's list in roll.yaml and to the history.
-
-        Review is where people and places actually get assigned, so anything new there
-        flows back into the roll info. Returns True if roll.yaml changed.
-        """
-        current = self.roll_values(key)
-        seen = {c.casefold() for c in current}
-        new = [v for v in dict.fromkeys(values) if v and v.casefold() not in seen]
-        if not new or self.folder is None:
+        """Add names to the open roll's list in roll.yaml and to the history.
+        Returns True if roll.yaml changed."""
+        if self.folder is None:
             return False
-        write_roll_yaml(self.folder, {**self.roll, key: _join_list_field(current + new)})
-        history = _load_history()
-        for value in new:
-            _record(history, key, value)
-        _save_history(history)
-        self.roll = load_roll_yaml(self.folder)
-        return True
+        changed = add_to_roll(self.folder, self.roll, key, values)
+        if changed:
+            self.roll = load_roll_yaml(self.folder)
+        return changed
 
     # ── Models ────────────────────────────────────────────────────────────────
 
@@ -205,6 +197,30 @@ class State:
             return loaded if isinstance(loaded, dict) else {}
         except (OSError, ValueError):
             return {}
+
+
+def add_to_roll(folder: Path, info: dict, key: str, values: list[str]) -> bool:
+    """Add names found while editing frames to a roll's list (people, landmarks, places)
+    in its roll.yaml and to the history. `info` — the roll's info as held in memory — is
+    updated in place. Returns True if roll.yaml changed.
+
+    Editing is where people and places actually get assigned, so anything new there
+    flows back into the roll info.
+    """
+    current = _split_list_field(info.get(key, ""))
+    seen = {c.casefold() for c in current}
+    new = [v for v in dict.fromkeys(values) if v and v.casefold() not in seen]
+    if not new:
+        return False
+    write_roll_yaml(folder, {**info, key: _join_list_field(current + new)})
+    history = _load_history()
+    for value in new:
+        _record(history, key, value)
+    _save_history(history)
+    fresh = load_roll_yaml(folder)
+    info.clear()
+    info.update(fresh)
+    return True
 
 
 def display_path(path: Path) -> str:

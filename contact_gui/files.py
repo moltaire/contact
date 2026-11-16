@@ -6,7 +6,9 @@ thumbnails for the UI and the raw files the contact sheet links to.
 Only files directly inside the currently open folder are ever served.
 """
 
+import hashlib
 import io
+import os
 from pathlib import Path
 from urllib.parse import quote
 
@@ -24,6 +26,10 @@ from .state import state
 _SIZES = (160, 320, 1600)
 _cache: dict[tuple[str, float, int], bytes] = {}
 _CACHE_LIMIT = 6000  # the library shows eight small previews per roll
+# Previews are also kept on disk, so a library is only slow the very first time.
+# They are keyed by file, size and modification time: an edited or rotated scan
+# simply gets a new preview; old ones are harmless and can be deleted at any time.
+PREVIEW_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "contact" / "previews"
 
 
 def thumb_url(image: Path, size: int = 320) -> str:
@@ -56,16 +62,43 @@ def _resolve(name: str) -> Path:
 
 
 def _render(path: Path, size: int) -> bytes:
-    key = (str(path), path.stat().st_mtime, size)
-    if key not in _cache:
-        img = ImageOps.exif_transpose(Image.open(path))
+    """An upright JPEG preview: from memory, else from disk, else made now and kept."""
+    mtime = path.stat().st_mtime
+    key = (str(path), mtime, size)
+    if key in _cache:
+        return _cache[key]
+    name = hashlib.sha1(f"{path}|{mtime}|{size}".encode()).hexdigest() + ".jpg"
+    stored = PREVIEW_DIR / name[:2] / name
+    try:
+        data = stored.read_bytes()
+    except OSError:
+        img = Image.open(path)
+        img.draft("RGB", (size, size))  # JPEG: decode at a reduced scale, much faster
+        img = ImageOps.exif_transpose(img)
         img.thumbnail((size, size))
         buf = io.BytesIO()
         img.convert("RGB").save(buf, "JPEG", quality=85)
-        if len(_cache) >= _CACHE_LIMIT:
-            _cache.clear()
-        _cache[key] = buf.getvalue()
-    return _cache[key]
+        data = buf.getvalue()
+        try:
+            stored.parent.mkdir(parents=True, exist_ok=True)
+            tmp = stored.with_suffix(".tmp")
+            tmp.write_bytes(data)
+            os.replace(tmp, stored)
+        except OSError:
+            pass  # no disk cache — still works, just slower next time
+    if len(_cache) >= _CACHE_LIMIT:
+        _cache.clear()
+    _cache[key] = data
+    return data
+
+
+def warm_previews(images: list[Path], size: int) -> None:
+    """Make previews ahead of time. Blocking — run it off the event loop."""
+    for image in images:
+        try:
+            _render(image, size)
+        except Exception:
+            continue
 
 
 # Plain `def` routes run in FastAPI's thread pool, so Pillow never blocks the event loop.
