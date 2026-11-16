@@ -13,6 +13,7 @@ _SECTIONS = {
         ("Return", "Open the entry line"),
         ("T P L W F", "Open it for tags, people, landmarks, where, or a fact"),
         ("1 … 9", "Toggle a person on the frame"),
+        ("S", "Favourite the frame (shared with the contact sheet)"),
         ("A", "Select all frames"),
         ("Esc", "Clear the selection"),
         ("⌘ click", "Add a frame to the selection (Ctrl on Windows and Linux)"),
@@ -22,6 +23,7 @@ _SECTIONS = {
         ("Tab", "Empty line: next mode (⇧ Tab goes back)"),
         ("Tab", "While typing: complete a known name"),
         ("Return", "Apply, and leave the line"),
+        ('"a, b"', "Quotes keep a comma inside one tag or landmark"),
         ("Backspace", "Empty line: remove the last entry of this mode"),
         ("Esc", "Leave without applying"),
         ("/person Name", "In fact mode: set a field with a command"),
@@ -65,7 +67,8 @@ class HelpDialog:
                 with ui.row().classes("w-full items-baseline no-wrap gap-3"):
                     with ui.row().classes("gap-1 no-wrap shrink-0").style(f"width: {gutter}"):
                         # commands stay in one cap; plain keys get one cap each
-                        for key in ([keys] if keys.startswith("/") and " " in keys and keys.count("/") == 1
+                        for key in ([keys] if keys.startswith('"') or
+                                    keys.startswith("/") and " " in keys and keys.count("/") == 1
                                     else keys.split(" ")):
                             ui.label(key).classes("kbd")
                     ui.label(what).classes("text-sm")

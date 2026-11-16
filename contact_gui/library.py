@@ -142,6 +142,12 @@ class LibraryView:
         self.show_filters = not self.show_filters
         self._filters.refresh()
 
+    def _toggle_favourites(self) -> None:
+        term = "is:starred"
+        query = " ".join(self.query.replace(term, "").split()) if term in self.query \
+            else f"{self.query} {term}".strip()
+        self.search.set_value(query)
+
     def _toggle_term(self, prefix: str, value: str) -> None:
         term = f'{prefix}:"{value}"'
         query = " ".join(self.query.replace(term, "").split()) if term in self.query \
@@ -172,6 +178,12 @@ class LibraryView:
                         if len(values) > _MAX_CHIPS:
                             ui.label(f"+{len(values) - _MAX_CHIPS} more — type to search") \
                                 .classes("text-xs text-grey-6 self-center")
+            with ui.row().classes("w-full items-center no-wrap gap-3"):
+                ui.label("show").classes("sheet-key")
+                on = "is:starred" in self.query
+                ui.chip("favourites", icon="star", color="primary" if on else "grey-9",
+                        text_color="white", on_click=self._toggle_favourites) \
+                    .props("dense square").classes("candidate")
             with ui.row().classes("w-full items-center no-wrap gap-3"):
                 ui.label("library").classes("sheet-key")
                 ui.label(display_path(state.library_root)).classes("text-xs text-grey-6 mono")
@@ -218,9 +230,9 @@ class LibraryView:
                     self._roll_card(roll, matches.get(id(roll)))
 
     def _roll_card(self, roll: Roll, matched: list[Hit] | None) -> None:
-        # matching frames first, then the rest of the roll in order
+        # matching frames first, then the roll's favourites, then the rest in order
         first = [hit.frame.image for hit in matched or []]
-        images = list(dict.fromkeys([*first, *roll.images]))[:_CARD_FRAMES]
+        images = list(dict.fromkeys([*first, *roll.starred, *roll.images]))[:_CARD_FRAMES]
         with ui.element("div").classes("library-card") \
                 .on("click", lambda: self.on_open(roll.folder, None)):
             with ui.element("div").classes("library-sheet"):

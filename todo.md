@@ -53,6 +53,20 @@ Decisions: all processed rolls live in ONE parent folder (set it in Settings). T
 - [x] Open a roll in review at a given frame from a result (thumbnail route must serve frames from any roll in the library, not just the open one)
 - [ ] Later: static library page that links the rolls' contact sheets, for browsing and sharing without the app
 
+### 8. Favourites, chips, quotes
+- [x] Favourites: `S` in review, star in the contact sheet; stored as xmp:Rating 5 in the sidecar, so both stay in step (the sheet saves through the app, or in the browser when opened as a plain file); favourites lead a roll's library card; `is:starred` filter
+- [x] Suggestion chips under the entry line wrap into rows instead of scrolling
+- [x] Quotes keep a comma inside one tag or landmark: `"Hamburger Bahnhof, Berlin", Museum Island`
+- [x] Shift-click in the filmstrip no longer selects page text
+- [x] Page loads no longer wait for Ollama (caused 500 errors while the model was busy)
+
+### 9. To plan: how the library and a single roll fit together
+Clicking a frame in the library jumps into review with no way back. Ideas so far:
+- a viewer that steps through the search results (← →), on top of the library
+- from the viewer: open this frame in review, or open its roll — and a way back to the results
+- the roll steps (folder, roll info, tagging, review, sheet) may need to read as "inside a roll", with the library as home
+- first load of a real library (19 rolls) takes ~10 s while previews are generated; consider generating them in the background or on disk
+
 ### Later
 - Tests, cross-roll index and search, contact sheet redesign, coordinates for places, AI-suggested roll label, Ollama install instructions
 

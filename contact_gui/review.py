@@ -23,7 +23,7 @@ from pathlib import Path
 
 from nicegui import run, ui
 
-from processor.pipeline import tagged_pairs
+from processor.pipeline import rebuild_contact_sheet, tagged_pairs
 from processor.roll import normalize_name, normalize_place
 from processor.sidecar import write_xmp
 from processor.tagger import VALID_CATEGORIES, ensure_ollama, refine_frame, sanitize_tags
@@ -56,8 +56,15 @@ MODES = {
 _MODE_KEYS = {key: mode for mode, (_, _, key) in MODES.items()}
 _HINTS = {
     "fact": "Return sends this to the model · Tab switches to tags, people, landmarks, place",
-    "tags": "Several with commas · Backspace on an empty line removes the last tag",
+    "tags": "Several with commas — \"quotes\" keep a comma inside one tag · "
+            "Backspace on an empty line removes the last tag",
 }
+
+
+def _shown(value: str) -> str:
+    """How an entry reads in the sheet, where entries are separated by commas: one with
+    a comma of its own is quoted, the way it is typed."""
+    return f'"{value}"' if "," in value else value
 
 
 class ReviewView:
@@ -92,7 +99,7 @@ class ReviewView:
         # Fixed geometry: the image and the editing column have the same height and the
         # navigation sits on top, so nothing moves from one frame to the next.
         with ui.row().classes("w-full no-wrap gap-6 items-stretch") \
-                .style(f"height: calc(100vh - {_CHROME_HEIGHT}px); min-height: 560px"):
+                .style(f"height: calc(100vh - {_CHROME_HEIGHT}px); min-height: 610px"):
             self.image = ui.image().props("fit=contain").classes("w-3/5 h-full frame")
             with ui.column().classes("w-2/5 h-full gap-2 no-wrap overflow-auto"):
                 with ui.row().classes("w-full items-center no-wrap"):
@@ -103,13 +110,15 @@ class ReviewView:
                                                  on_click=lambda: self.go(self.index + 1)) \
                         .props("outline").tooltip("Next frame (→)")
                     self.counter = ui.label().classes("mono text-grey-7 whitespace-nowrap")
-                    self.name = ui.label().classes("mono font-bold truncate")
+                    self.name = ui.label().classes("mono font-bold whitespace-nowrap")
                     # how many frames are selected besides this one; click to clear
                     self.selection_label = ui.label().classes(
                         "mono text-xs text-primary whitespace-nowrap cursor-pointer"
                     ).on("click", self._clear_selection).tooltip("Click or press Esc to clear")
                     ui.space()
-                    self.status = ui.label().classes("text-xs text-grey-6 mono whitespace-nowrap")
+                    self.status = ui.label().classes("text-xs text-grey-6 mono truncate min-w-0")
+                    self.star_button = ui.button(icon="star_border", on_click=self._toggle_star) \
+                        .props("flat round dense size=sm").tooltip("Favourite (S)")
                     ui.button(icon="help_outline", on_click=self.on_help) \
                         .props("flat round dense size=sm color=grey-6") \
                         .tooltip("Keyboard shortcuts (?)")
@@ -126,6 +135,8 @@ class ReviewView:
                 .classes("w-24 h-20 shrink-0 cursor-pointer frame")
                 .on("click", lambda e, i=i: self._strip_click(i, e.args),
                     ["shiftKey", "metaKey", "ctrlKey"])
+                # a shift-click must select frames, not a stretch of the page's text
+                .on("mousedown", js_handler="(e) => { if (e.shiftKey) e.preventDefault(); }")
                 for i, (img, _) in enumerate(self.pairs)
             ]
         self._show()
@@ -153,7 +164,9 @@ class ReviewView:
         self.note.on("keydown.backspace", self._backspace)
 
         # What the current mode offers: the roll's people, landmarks or places to click
-        with ui.row().classes("w-full no-wrap items-center gap-1 strip h-8"):
+        # Room for three rows of chips; they wrap instead of scrolling sideways
+        with ui.row().classes("w-full items-start content-start gap-1 overflow-y-auto") \
+                .style("height: 5.25rem"):
             self._candidates()
 
     def _build_sheet(self) -> None:
@@ -192,7 +205,8 @@ class ReviewView:
                             ui.label(value).classes("sheet-value sheet-inherited") \
                                 .tooltip("From the roll's location")
                         else:
-                            ui.label(value).classes("sheet-value sheet-removable") \
+                            ui.label(value if mode == "place" else _shown(value)) \
+                                .classes("sheet-value sheet-removable") \
                                 .on("click", lambda mode=mode, value=value: self._remove(mode, value)) \
                                 .tooltip("Click to remove")
 
@@ -209,7 +223,7 @@ class ReviewView:
             self._candidate_chips(self._known_places()[:8], [current],
                                   lambda place, on: self._set_place(place if on else ""), False)
         else:
-            ui.label(_HINTS[self.mode]).classes("text-xs text-grey-6 truncate")
+            ui.label(_HINTS[self.mode]).classes("text-xs text-grey-6")
 
     @staticmethod
     def _candidate_chips(names: list[str], present: list[str], on_toggle, numbered: bool) -> None:
@@ -245,6 +259,8 @@ class ReviewView:
             self.go(self.index + 1)
         elif key in ("a", "A"):
             self._select_all()
+        elif key in ("s", "S"):
+            self._toggle_star()
         elif key == "Escape":
             self._clear_selection()
         elif key.lower() in _MODE_KEYS:
@@ -318,8 +334,13 @@ class ReviewView:
             thumb.classes(remove="frame-current frame-selected frame-dim")
             thumb.classes(add="frame-current" if i == self.index
                           else "frame-selected" if i in self.selection else "frame-dim")
+            thumb.classes(add="frame-starred" if self.pairs[i][1].get("starred") else "",
+                          remove="" if self.pairs[i][1].get("starred") else "frame-starred")
         n = len(self.selection)
         self.selection_label.set_text(f"+{n} selected" if n else "")
+        on = bool(self.pairs[self.index][1].get("starred"))
+        self.star_button.props(f'icon={"star" if on else "star_border"} '
+                               f'color={"primary" if on else "grey-6"}')
 
     # ── The entry line ────────────────────────────────────────────────────────
 
@@ -426,14 +447,27 @@ class ReviewView:
 
     # ── Saving hand edits ─────────────────────────────────────────────────────
 
-    def _write(self, i: int, meta: dict) -> None:
+    def _toggle_star(self) -> None:
+        """Mark the current frame (and the selection) as a favourite, or take it back.
+
+        Shared with the contact sheet, which is rebuilt so its file shows the same stars.
+        """
+        on = not self.pairs[self.index][1].get("starred")
+        for i in self._targets():
+            meta = self.pairs[i][1]
+            if bool(meta.get("starred")) != on:
+                self._write(i, {**meta, "starred": on}, affects_summary=False)
+        rebuild_contact_sheet(state.folder, state.roll)
+        self._show_selection()
+
+    def _write(self, i: int, meta: dict, affects_summary: bool = True) -> None:
         img = self.pairs[i][0]
         # Tags stay generic keywords: lowercase, and never a person, landmark or place
         meta = {**meta, "tags": sanitize_tags(meta.get("tags"), self._names(meta),
                                               meta.get("place", ""))}
         write_xmp(img, meta, state.roll)
         self.pairs[i] = (img, meta)
-        state.edited_since_summary = True
+        state.edited_since_summary = state.edited_since_summary or affects_summary
         if i == self.index:
             self._sheet.refresh()
             self._candidates.refresh()

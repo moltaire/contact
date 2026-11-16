@@ -46,11 +46,13 @@ class SettingsDialog:
                 ui.button("Close", on_click=self.dialog.close).props("flat")
 
     def open(self) -> None:
+        self._models.refresh()  # the list of installed models may have arrived since
         self._lists.refresh()
         self.dialog.open()
 
     # ── Models ────────────────────────────────────────────────────────────────
 
+    @ui.refreshable_method
     def _models(self) -> None:
         ui.label("contact uses models installed in Ollama on this computer. "
                  "Nothing is sent anywhere else.").classes("text-sm text-grey-6")

@@ -10,12 +10,14 @@ import io
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import HTTPException
+from fastapi import Body, HTTPException
 from fastapi.responses import FileResponse, Response
 from nicegui import app
 from PIL import Image, ImageOps
 
+from processor.pipeline import rebuild_contact_sheet
 from processor.roll import IMAGE_EXTS
+from processor.sidecar import _read_xmp_meta, write_xmp
 
 from .state import state
 
@@ -93,6 +95,19 @@ def library_thumb(size: int, roll: str, name: str) -> Response:
     except Exception:
         raise HTTPException(415, "cannot render this image") from None
     return Response(data, media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
+
+
+@app.post("/api/star")
+def star(payload: dict = Body(...)) -> dict:
+    """The contact sheet, shown inside the app, saves a favourite to the frame's sidecar."""
+    path = _resolve(str(payload.get("name", "")))
+    sidecar = path.with_suffix(".xmp")
+    if path.suffix.lower() not in IMAGE_EXTS or not sidecar.exists():
+        raise HTTPException(404)
+    meta = {**_read_xmp_meta(sidecar), "starred": bool(payload.get("starred"))}
+    write_xmp(path, meta, state.roll)
+    rebuild_contact_sheet(state.folder, state.roll)  # the file on disk stays in step
+    return {"starred": meta["starred"]}
 
 
 @app.get("/roll/{name}")

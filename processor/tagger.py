@@ -382,8 +382,9 @@ def sanitize_tags(
         proper_words |= set(place.casefold().replace(",", " ").split())
     clean: list[str] = []
     for item in tags or []:
-        # some answers pack every tag into one comma-separated string
-        for tag in str(item).split(","):
+        # some model answers pack every tag into one comma-separated string; a tag
+        # entered by hand keeps its comma
+        for tag in (str(item).split(",") if max_words else [str(item)]):
             tag = " ".join(tag.strip().strip("*`_.#").lower().split())
             if not tag or tag in clean or tag in taken:
                 continue

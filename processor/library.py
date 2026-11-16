@@ -70,6 +70,11 @@ class Roll:
         on_frames = [m for f in self.frames for m in f.meta.get("landmarks", [])]
         return list(dict.fromkeys([*on_frames, *_split_list_field(self.info.get("landmarks", ""))]))
 
+    @property
+    def starred(self) -> list[Path]:
+        """The roll's favourites, in file order."""
+        return [f.image for f in self.frames if f.meta.get("starred")]
+
     def place_of(self, frame: Frame) -> str:
         """Where a frame was taken: its own place, else the roll's if it has exactly one."""
         return frame.meta.get("place") or (self.locations[0] if len(self.locations) == 1 else "")
@@ -160,6 +165,7 @@ _FIELD_ALIASES = {
     "roll": "roll", "label": "roll",
     "category": "category", "cat": "category",
     "file": "file",
+    "is": "star", "star": "star", "fav": "star",
 }
 
 
@@ -186,7 +192,10 @@ def _fields(roll: Roll, frame: Frame) -> dict[str, str]:
         "file": frame.image.name,
         "description": meta.get("description", ""),
     }
-    return {key: fold(value) for key, value in raw.items()}
+    folded = {key: fold(value) for key, value in raw.items()}
+    # reachable only as is:starred / star:yes / fav:yes, never by a plain word
+    folded["star"] = "starred star favourite favorite fav yes" if meta.get("starred") else ""
+    return folded
 
 
 def parse_query(query: str) -> list[tuple[str | None, str]]:
@@ -221,7 +230,7 @@ def search(rolls: list[Roll], query: str) -> list[Hit]:
     for roll in rolls:
         for frame in roll.frames:
             fields = _fields(roll, frame)
-            everything = " \n ".join(fields.values())
+            everything = " \n ".join(v for k, v in fields.items() if k != "star")
             if all(text in (fields[name] if name else everything) for name, text in terms):
                 hits.append(Hit(roll, frame))
     return hits

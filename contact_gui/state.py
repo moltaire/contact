@@ -117,13 +117,9 @@ class State:
         """True if frames were edited after the roll summary was last written."""
         if self.folder is None or not self.tagged:
             return False
-        if self.edited_since_summary:
-            return True
-        roll_yaml = self.folder / "roll.yaml"
-        if not roll_yaml.exists():
-            return True
-        written = roll_yaml.stat().st_mtime
-        return any(img.with_suffix(".xmp").stat().st_mtime > written for img in self.tagged)
+        # Only edits made in review count. File times would also fire for a favourite,
+        # which rewrites a sidecar without changing anything the summary is built from.
+        return self.edited_since_summary
 
     # ── Roll lists (subjects, locations) ──────────────────────────────────────
 

@@ -96,6 +96,7 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
       landmarks — named things in it: buildings, monuments, venues ("Neue Nationalgalerie")
       place     — where it was taken, as "City, Country" (overrides the roll's location list)
       notes     — facts told to the model ("this is the Parthenon"), kept so a re-tag can reuse them
+      starred   — a favourite; written as the standard xmp:Rating of 5
     Names, landmarks and the place are also written as keywords so that other software
     finds them, and into the standard IPTC fields: sublocation, city, country.
     """
@@ -133,6 +134,7 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
         + "        </rdf:Bag>\n"
         + "      </dc:subject>\n"
         + field("xmp:CreateDate", roll.get("date", ""))
+        + field("xmp:Rating", "5" if meta.get("starred") else "")
         + field("Iptc4xmpCore:Location", "; ".join(landmarks) or place or roll.get("location", ""))
         + field("photoshop:City", city)
         + field("photoshop:Country", country)
@@ -160,7 +162,7 @@ def write_xmp(image_path: Path, meta: dict, roll: dict) -> Path:
 
 _EMPTY_META = {
     "description": "", "category": "other", "tags": [], "vision_raw": "",
-    "people": [], "landmarks": [], "place": "", "notes": [],
+    "people": [], "landmarks": [], "place": "", "notes": [], "starred": False,
 }
 
 
@@ -205,4 +207,5 @@ def _read_xmp_meta(xmp_path: Path) -> dict:
         "landmarks":   landmarks,
         "place":       place,
         "notes":       _read_list(content, "film:userNotes"),
+        "starred":     text("xmp:Rating").strip() not in ("", "0", "-1"),
     }

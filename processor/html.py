@@ -72,7 +72,7 @@ def write_roll_html(folder: Path, pairs: list, roll: dict) -> None:
         # People and the frame's place lead the tag list, so they are searchable and
         # show up first in the lightbox.
         place = meta.get("place", "")
-        tags_str = ", ".join(
+        tags_str = " | ".join(
             [*meta.get("people", []), *meta.get("landmarks", []),
              *([place] if place else []), *meta.get("tags", [])]
         )
@@ -86,7 +86,8 @@ def write_roll_html(folder: Path, pairs: list, roll: dict) -> None:
             f'<div class="card" data-search="{_xe(search_data)}" data-img="{_xe(img_path.name)}"'
             f' data-category="{_xe(meta.get("category", ""))}"'
             f' data-description="{_xe(meta.get("description", ""))}"'
-            f' data-tags="{_xe(tags_str)}">'
+            f' data-tags="{_xe(tags_str)}"'
+            f'{' data-starred="1"' if meta.get("starred") else ""}>'
             f'<button class="star-btn" aria-label="Star">&#9734;</button>'
             f'<img src="{_xe(img_path.name)}" alt="" loading="lazy">'
             f'<div class="card-body">'
@@ -170,8 +171,23 @@ h1 { font-size: 1.4rem; font-weight: 600; }
   });
 
   // ── Stars / pinning ─────────────────────────────────────────────────────────
-  var STAR_KEY = 'film-stars:' + window.location.pathname;
-  var starred = JSON.parse(localStorage.getItem(STAR_KEY) || '[]');
+  // Favourites live in the sidecars and are baked into this page (data-starred).
+  // Opened through the contact app, a click is saved back to the sidecar. Opened as a
+  // plain file there is nowhere to save to, so the click is remembered in this browser
+  // only, on top of what the page was built with.
+  var LEGACY_KEY = 'film-stars:' + window.location.pathname;
+  var LOCAL_KEY = 'contact-stars:' + window.location.pathname;
+  var legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '[]');
+  var local = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
+  var starred = [];
+  function readStars() {
+    starred = cards.filter(function(card) {
+      var name = card.dataset.img;
+      if (Object.prototype.hasOwnProperty.call(local, name)) return local[name];
+      return card.dataset.starred === '1' || legacy.indexOf(name) !== -1;
+    }).map(function(card) { return card.dataset.img; });
+  }
+  readStars();
   function applyStars() {
     cards.forEach(function(card) {
       var on = starred.indexOf(card.dataset.img) !== -1;
@@ -196,10 +212,23 @@ h1 { font-size: 1.4rem; font-weight: 600; }
     });
   });
   function toggleStar(imgName) {
-    var i = starred.indexOf(imgName);
-    if (i === -1) starred.push(imgName); else starred.splice(i, 1);
-    localStorage.setItem(STAR_KEY, JSON.stringify(starred));
+    var on = starred.indexOf(imgName) === -1;
+    local[imgName] = on;
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(local));
+    readStars();
     applyStars();
+    if (window.location.protocol === 'file:') return;
+    fetch('/api/star', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: imgName, starred: on})
+    }).then(function(response) {
+      if (!response.ok) return;
+      // saved in the sidecar: the page's own state is the truth again
+      var card = cards.filter(function(c) { return c.dataset.img === imgName; })[0];
+      if (card) card.dataset.starred = on ? '1' : '';
+      delete local[imgName];
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(local));
+    }).catch(function() {});
   }
 
   // ── Lightbox ─────────────────────────────────────────────────────────────────
@@ -218,7 +247,7 @@ h1 { font-size: 1.4rem; font-weight: 600; }
     document.getElementById('lb-desc').textContent = card.dataset.description;
     var tagsEl = document.getElementById('lb-tags');
     tagsEl.innerHTML = '';
-    (card.dataset.tags || '').split(',').forEach(function(t) {
+    (card.dataset.tags || '').split('|').forEach(function(t) {
       t = t.trim();
       if (!t) return;
       var s = document.createElement('span');

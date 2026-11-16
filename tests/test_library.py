@@ -174,3 +174,38 @@ def test_facets_count_frames_for_people_and_places_and_rolls_for_film(tmp_path):
     assert found["place"] == [("Prague, Czech Republic", 2), ("Aegina, Greece", 1),
                               ("Athens, Greece", 1)]
     assert found["film"] == [("Ilford HP5 Plus", 1), ("Kodak Gold 200", 1)]
+
+
+def test_favourites_are_stored_in_the_sidecar_and_searchable(tmp_path):
+    root = library(tmp_path)
+    frame = root / "2024-05_athens" / "b_02.jpg"
+    from processor.sidecar import _read_xmp_meta
+    meta = _read_xmp_meta(frame.with_suffix(".xmp"))
+    assert meta["starred"] is False
+    write_xmp(frame, {**meta, "starred": True}, {})
+    assert _read_xmp_meta(frame.with_suffix(".xmp"))["starred"] is True
+    assert "<xmp:Rating>5</xmp:Rating>" in frame.with_suffix(".xmp").read_text()
+
+    rolls = scan_library(root)
+    assert [p.name for p in rolls[0].starred] == ["b_02.jpg"]
+    assert names(search(rolls, "is:starred")) == ["b_02.jpg"]
+    assert names(search(rolls, "starred")) == []  # a plain word does not reach the flag
+
+
+def test_entry_line_values_and_quotes():
+    from contact_gui.commands import complete_value, parse_command, split_values
+    assert split_values(" Ines, bea ,, ") == ["Ines", "bea"]
+    assert split_values('"Hamburger Bahnhof, Berlin", Museum Island') == [
+        "Hamburger Bahnhof, Berlin", "Museum Island"]
+    assert split_values('"unfinished, quote') == ["unfinished, quote"]
+    assert parse_command('/landmark "A, B", C') == ("landmark", ["A, B", "C"])
+    known = ["Hamburger Bahnhof, Berlin", "Ines", "Bea"]
+    assert complete_value("ham", known) == '"Hamburger Bahnhof, Berlin"'
+    assert complete_value('"A, B", be', known) == '"A, B", Bea'
+    assert complete_value("ber", ["Berlin, Germany"], single=True) == "Berlin, Germany"
+
+
+def test_hand_entered_tags_keep_commas_but_model_tags_are_split():
+    from processor.tagger import sanitize_tags
+    assert sanitize_tags(["Rust, old", "Cars"]) == ["rust, old", "cars"]
+    assert sanitize_tags(["rust, old cars"], max_words=3) == ["rust", "old cars"]

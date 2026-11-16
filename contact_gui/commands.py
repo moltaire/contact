@@ -49,7 +49,7 @@ def parse_command(text: str) -> tuple[str, list[str]]:
         problem = "Unknown command" if not matches else "Ambiguous command"
         raise CommandError(f"{problem} “/{word}”. Use {USAGE}")
     command = matches[0]
-    values = [rest.strip()] if command == "place" else [v.strip() for v in rest.split(",")]
+    values = [rest.strip()] if command == "place" else split_values(rest)
     values = [v for v in values if v]
     if not values:
         raise CommandError(f"/{command} needs a value. Use {USAGE}")
@@ -84,9 +84,28 @@ def complete(text: str, people: list[str], landmarks: list[str], places: list[st
     return f"/{command} {lead}{match}"
 
 
+def _split_outside_quotes(text: str) -> list[str]:
+    """Split at commas, except inside double quotes. The quotes stay in the parts."""
+    parts, current, quoted = [], "", False
+    for char in text:
+        if char == '"':
+            quoted = not quoted
+        if char == "," and not quoted:
+            parts.append(current)
+            current = ""
+        else:
+            current += char
+    return [*parts, current]
+
+
 def split_values(text: str) -> list[str]:
-    """ "Ines, Bea" → ["Ines", "Bea"]: several values on one entry line."""
-    return [value.strip() for value in text.split(",") if value.strip()]
+    """Several values on one entry line: `Ines, Bea` → ["Ines", "Bea"].
+
+    Double quotes keep a comma inside one value:
+    `"Hamburger Bahnhof, Berlin", Museum Island` → ["Hamburger Bahnhof, Berlin", "Museum Island"].
+    """
+    values = (" ".join(part.replace('"', "").split()) for part in _split_outside_quotes(text))
+    return [value for value in values if value]
 
 
 def complete_value(text: str, known: list[str], single: bool = False) -> str:
@@ -95,12 +114,17 @@ def complete_value(text: str, known: list[str], single: bool = False) -> str:
     With several comma-separated values the last one is completed; `single` treats the
     whole text as one value (a place contains a comma itself).
     """
-    done, _, typed = ("", "", text) if single else text.rpartition(",")
-    prefix = typed.strip().casefold()
+    if single:
+        done, typed = [], text
+    else:
+        *done, typed = _split_outside_quotes(text)
+    prefix = typed.replace('"', "").strip().casefold()
     match = next((name for name in known if prefix and name.casefold().startswith(prefix)), None)
     if match is None:
         return text
-    return f"{done}, {match}" if done else match
+    if "," in match and not single:
+        match = f'"{match}"'  # a name with a comma has to stay one value
+    return ", ".join([*(part.strip() for part in done), match])
 
 
 def completions(people: list[str], landmarks: list[str], places: list[str]) -> list[str]:

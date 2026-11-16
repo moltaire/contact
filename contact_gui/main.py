@@ -62,6 +62,10 @@ TABS = {
 }
 
 
+async def _refresh_models() -> None:
+    await run.io_bound(state.refresh_models)
+
+
 @ui.page("/")
 async def index(tab: str = "") -> None:
     """The whole app is one page. `/?tab=review` opens it on a given step."""
@@ -123,7 +127,9 @@ async def index(tab: str = "") -> None:
              "review": review, "sheet": sheet}
 
     theme.apply()
-    await run.io_bound(state.refresh_models)
+    # Asking Ollama what is installed must not hold up the page: while it is busy
+    # tagging, the answer can take longer than a page is allowed to build.
+    background_tasks.create(_refresh_models(), name="models")
 
     # px-8 lines the wordmark up with the content below (page + panel padding)
     with ui.header().classes("items-center px-8 py-2"):

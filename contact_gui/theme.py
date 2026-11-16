@@ -169,8 +169,13 @@ body.body--light .help-note {{ color: #6b6a66; border-top-color: #d5d4cf; }}
 body.body--light .kbd {{ background: #f4f3f0; border-color: #c9c8c3; }}
 .q-dialog__backdrop {{ background: rgba(0, 0, 0, 0.6); }}
 
-/* Filmstrip: one row that scrolls sideways only */
-.strip {{ overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }}
+/* Filmstrip: one row that scrolls sideways only; clicks select frames, never text */
+.strip {{ overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+          user-select: none; -webkit-user-select: none; }}
+.frame-starred::after {{
+    content: "★"; position: absolute; top: 1px; right: 4px; font-size: 0.8rem;
+    color: {ORANGE}; text-shadow: 0 0 3px #000;
+}}
 """
 
 
