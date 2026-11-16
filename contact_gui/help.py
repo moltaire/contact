@@ -27,6 +27,10 @@ _SECTIONS = {
         ("/person Name", "In fact mode: set a field with a command"),
         ("/pe /l /pl /t", "Short forms of /person /landmark /place /tag"),
     ],
+    "Library": [
+        ("Return", "Jump to the search box ( / works too)"),
+        ("film:hp5", "Limit a word to a field: person, place, tag, film, camera, date"),
+    ],
     "Anywhere": [
         ("?", "Show or hide this overview"),
     ],

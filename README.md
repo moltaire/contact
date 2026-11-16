@@ -38,7 +38,11 @@ contact-ui
 contact-ui --folder ~/scans/tuscany/
 ```
 
-The app runs locally and opens in your browser. Five steps:
+The app runs locally and opens in your browser.
+
+**Library** — point it once at the folder that holds all your roll folders. It lists every roll in a sortable table (date, film, camera, place, people, frames) and searches across all frames: descriptions, tags, people, landmarks, places, and the roll's film, camera, lens and date. Results are frames grouped by roll, with the roll's date; click one to open its roll in review at that frame. Search ignores case and accents, quotes keep words together, and a prefix limits a word to one field (`person:ines`, `place:athens`, `film:hp5`, `tag:tower`, `date:2024`). The library only reads your folders; the contact sheets stay the thing you browse and share.
+
+A single roll goes through five steps:
 
 1. **Folder** — type or browse to a folder of scans
 2. **Roll info** — describe the roll: film stock, camera, lens, date, location, people, landmarks, lab

@@ -33,6 +33,16 @@ def roll_file_url(name: str) -> str:
     return f"/roll/{quote(name)}"
 
 
+def library_thumb_url(image: Path, size: int = 320) -> str:
+    """Preview of a frame in any roll of the library, addressed as roll folder + file."""
+    return (f"/library-thumb/{size}/{quote(image.parent.name)}/{quote(image.name)}"
+            f"?v={int(image.stat().st_mtime)}")
+
+
+def _plain(name: str) -> bool:
+    return bool(name) and "/" not in name and "\\" not in name and not name.startswith(".")
+
+
 def _resolve(name: str) -> Path:
     folder = state.folder
     if folder is None or "/" in name or "\\" in name or name.startswith("."):
@@ -61,6 +71,22 @@ def _render(path: Path, size: int) -> bytes:
 def thumb(size: int, name: str) -> Response:
     path = _resolve(name)
     if size not in _SIZES or path.suffix.lower() not in IMAGE_EXTS:
+        raise HTTPException(404)
+    try:
+        data = _render(path, size)
+    except Exception:
+        raise HTTPException(415, "cannot render this image") from None
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
+
+
+@app.get("/library-thumb/{size}/{roll}/{name}")
+def library_thumb(size: int, roll: str, name: str) -> Response:
+    """Only images one level below the library folder are served."""
+    root = state.library_root
+    if root is None or not _plain(roll) or not _plain(name) or size not in _SIZES:
+        raise HTTPException(404)
+    path = root / roll / name
+    if not path.is_file() or path.suffix.lower() not in IMAGE_EXTS:
         raise HTTPException(404)
     try:
         data = _render(path, size)

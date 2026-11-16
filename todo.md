@@ -41,7 +41,17 @@
 ### 6. Review as one entry line and a sheet
 - [x] One entry line with five modes (fact, tags, people, landmarks, place): Return opens, Tab switches mode on an empty line, Return applies and leaves; T/P/L/W/F open a mode directly; the last mode is remembered
 - [x] The frame's labels are a plain sheet (who, what, where, tags, category); click an entry or press Backspace on an empty line to remove
-- [ ] Next priority: cross-roll index and search
+- [ ] Next priority: cross-roll index and search — plan agreed 2026-11-15:
+
+### 7. Library: cross-roll index and search
+Decisions: all processed rolls live in ONE parent folder (set it in Settings). The contact sheets stay the product for browsing and sharing; the Library is an extra screen in the app. Search returns frames, each with a clear roll origin and the roll's date.
+- [x] `processor/library.py`: scan the library folder for subfolders with a `roll.yaml`, read roll info and every frame's sidecar; cache and re-read only changed folders. With tests (the project's first)
+- [x] Search logic: free text over descriptions, tags, people, landmarks, places and roll fields (film, camera, lens, date); pure functions, tested
+- [x] Library folder: chosen on the Library screen itself ("Change"), saved in settings.json
+- [x] Library screen before a roll is opened: sortable roll table (label, date, film, camera, place, people, frame count, first frame as thumbnail); click opens the roll
+- [x] Search box and result grid of frames, grouped by roll with label and date; filters for people, places, film
+- [x] Open a roll in review at a given frame from a result (thumbnail route must serve frames from any roll in the library, not just the open one)
+- [ ] Later: static library page that links the rolls' contact sheets, for browsing and sharing without the app
 
 ### Later
 - Tests, cross-roll index and search, contact sheet redesign, coordinates for places, AI-suggested roll label, Ollama install instructions
@@ -87,4 +97,4 @@
 - [x] Replace the two-stage vision + synthesis calls with one structured call (about 5.5 s per frame instead of 9; short lowercase tags; animals are no longer "portrait")
 - [ ] Option to re-process only frames with empty descriptions
 - [x] Remove the Streamlit app once the NiceGUI app has proven itself
-- [ ] Add tests (parser, roll.yaml and XMP round-trips)
+- [ ] Add more tests (roll.yaml and XMP round-trips, tag clean-up); `tests/test_library.py` covers the library (run `uv run pytest`)

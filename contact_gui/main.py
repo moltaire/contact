@@ -10,12 +10,13 @@ NiceGUI front end for contact. Installed as the `contact-gui` command.
 import argparse
 from pathlib import Path
 
-from nicegui import native, run, ui
+from nicegui import background_tasks, native, run, ui
 
 from . import files  # noqa: F401 — registers the image routes
 from . import theme
 from .folder import FolderView
 from .help import HelpDialog
+from .library import LibraryView
 from .review import ReviewView
 from .roll_form import RollView
 from .settings import SettingsDialog
@@ -41,8 +42,10 @@ document.addEventListener("keydown", (event) => {
   if (event.key !== "/" && event.key !== "Enter") return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (typing || document.querySelector(".q-dialog")) return;
-  const field = document.querySelector(".fact-field input");
-  if (!field || field.offsetParent === null) return;  // review is not showing
+  // the entry line in review, or the search box in the library — whichever is showing
+  const field = [...document.querySelectorAll(".fact-field input, .library-search input")]
+    .find((el) => el.offsetParent !== null);
+  if (!field) return;
   event.preventDefault();
   field.focus();
 });
@@ -50,6 +53,7 @@ document.addEventListener("keydown", (event) => {
 """
 
 TABS = {
+    "library": "Library",
     "folder": "Folder",
     "roll": "Roll info",
     "tagging": "Tagging",
@@ -74,10 +78,25 @@ async def index(tab: str = "") -> None:
         review.save()  # leaving the review step must never lose an edit
         if e.value in ("review", "sheet", "tagging"):
             views[e.value].render.refresh()  # these show what is on disk right now
+        if e.value == "library":
+            background_tasks.create(library.reload(), name="library")  # pick up edits
         if e.value == "review":
             # The clicked tab keeps focus and Quasar uses arrow keys to move between tabs,
             # which would steal ← → from frame navigation. No Python API for blur.
             ui.run_javascript("document.activeElement.blur()")
+
+    def open_roll(folder: Path, frame: str | None) -> None:
+        """From the library: open a roll, in review at a frame if one was clicked."""
+        if state.busy and folder != state.folder:
+            ui.notify("A tagging run is in progress — stop it before switching rolls.",
+                      type="warning")
+            return
+        if folder != state.folder:
+            state.open_folder(folder)
+        names = [img.name for img in state.tagged]
+        review.index = names.index(frame) if frame in names else 0
+        refresh_all()
+        go("review" if state.tagged else "folder")
 
     def on_tagging_finished(all_ok: bool) -> None:
         refresh_all()
@@ -98,7 +117,9 @@ async def index(tab: str = "") -> None:
     review = ReviewView(on_roll_changed=lambda: roll.render.refresh(),
                         on_help=lambda: help_dialog.open())
     sheet = SheetView(on_renamed=refresh_all)
-    views = {"folder": folder, "roll": roll, "tagging": tagging, "review": review, "sheet": sheet}
+    library = LibraryView(on_open=open_roll)
+    views = {"library": library, "folder": folder, "roll": roll, "tagging": tagging,
+             "review": review, "sheet": sheet}
 
     theme.apply()
     await run.io_bound(state.refresh_models)
@@ -115,7 +136,9 @@ async def index(tab: str = "") -> None:
             .props("flat round dense color=grey-6").tooltip("Settings")
 
     start = "folder" if state.folder is None else ("tagging" if state.busy else "folder")
-    if tab in TABS and state.folder is not None:
+    if state.folder is None and state.library_root is not None:
+        start = "library"
+    if tab == "library" or (tab in TABS and state.folder is not None):
         start = tab
     with ui.tab_panels(tabs, value=start, on_change=on_tab_change).classes("w-full") as panels:
         for name, view in views.items():

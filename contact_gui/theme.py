@@ -115,6 +115,16 @@ body.body--light .sheet-key {{ color: #6b6a66; }}
 .sheet-select .q-field__control, .sheet-select .q-field__native {{ min-height: 1.6rem; height: 1.6rem; padding: 0; }}
 .sheet-select .q-field__marginal {{ height: 1.6rem; }}
 
+/* Library: roll table and search results */
+.library-table {{ background: transparent; }}
+.library-table .q-table__card, .library-table.q-table__card {{ background: transparent; box-shadow: none; }}
+.library-table tbody tr {{ cursor: pointer; }}
+.library-table th {{ font-family: {_MONO}; font-size: 0.72rem; letter-spacing: 0.06em; color: {ALUMINIUM}; }}
+.library-table td {{ font-size: 0.85rem; }}
+.library-roll {{ border-top: 1px solid {EDGE}; padding-top: 10px; }}
+body.body--light .library-roll {{ border-top-color: #d5d4cf; }}
+.library-hit:hover {{ outline: 2px solid {ORANGE}; outline-offset: 2px; }}
+
 /* Keyboard shortcuts overlay */
 .help-card {{ width: 860px; max-width: 94vw; padding: 20px 24px; gap: 16px; }}
 .wordmark-plain {{ font-family: {_MONO}; font-weight: 700; letter-spacing: 0.04em; }}

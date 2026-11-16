@@ -12,6 +12,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from processor.library import Roll, scan_library
 from processor.pipeline import Event, FrameResult, is_tagged, list_images
 from processor.roll import (
     HISTORY_PATH,
@@ -78,6 +79,12 @@ class State:
         self.text_model: str = FALLBACK_MODEL
         self.job: Job | None = None
         self.edited_since_summary = False  # set by review, cleared when the summary is rewritten
+        # The folder that holds all roll folders, and the last scan of it (None = not read yet)
+        saved_root = self._load_settings().get("library")
+        self.library_root: Path | None = (
+            Path(saved_root) if saved_root and Path(saved_root).is_dir() else None
+        )
+        self.library: list[Roll] | None = None
 
     # ── Folder ────────────────────────────────────────────────────────────────
 
@@ -169,20 +176,37 @@ class State:
 
     def save_models(self) -> None:
         """Remember the model choice for the next start."""
-        if not self.vision_model or not self.text_model:
-            return
+        if self.vision_model and self.text_model:
+            self._save_settings(vision_model=self.vision_model, text_model=self.text_model)
+
+    # ── Library ───────────────────────────────────────────────────────────────
+
+    def set_library(self, root: Path) -> None:
+        self.library_root = root
+        self.library = None
+        self._save_settings(library=str(root))
+
+    def refresh_library(self) -> None:
+        """Read the library folder; unchanged rolls are reused. Blocking — call it off
+        the event loop."""
+        if self.library_root is not None:
+            self.library = scan_library(self.library_root, self.library)
+
+    def _save_settings(self, **changes) -> None:
+        """Update some settings and keep the rest."""
         try:
             SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-            SETTINGS_PATH.write_text(json.dumps(
-                {"vision_model": self.vision_model, "text_model": self.text_model}, indent=2
-            ), encoding="utf-8")
+            SETTINGS_PATH.write_text(
+                json.dumps({**self._load_settings(), **changes}, indent=2), encoding="utf-8"
+            )
         except OSError:
             pass
 
     @staticmethod
     def _load_settings() -> dict:
         try:
-            return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+            loaded = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+            return loaded if isinstance(loaded, dict) else {}
         except (OSError, ValueError):
             return {}
 
