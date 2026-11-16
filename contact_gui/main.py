@@ -85,8 +85,9 @@ async def index(tab: str = "") -> None:
             # which would steal ← → from frame navigation. No Python API for blur.
             ui.run_javascript("document.activeElement.blur()")
 
-    def open_roll(folder: Path, frame: str | None) -> None:
-        """From the library: open a roll, in review at a frame if one was clicked."""
+    def open_roll(folder: Path, frame: str | None, tab: str | None = None) -> None:
+        """From the library: open a roll — in review, at a frame if one was clicked, or
+        on the step named by `tab`."""
         if state.busy and folder != state.folder:
             ui.notify("A tagging run is in progress — stop it before switching rolls.",
                       type="warning")
@@ -96,7 +97,7 @@ async def index(tab: str = "") -> None:
         names = [img.name for img in state.tagged]
         review.index = names.index(frame) if frame in names else 0
         refresh_all()
-        go("review" if state.tagged else "folder")
+        go(tab or ("review" if state.tagged else "folder"))
 
     def on_tagging_finished(all_ok: bool) -> None:
         refresh_all()

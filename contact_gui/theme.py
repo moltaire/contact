@@ -133,6 +133,8 @@ body.body--light .sheet-key {{ color: #6b6a66; }}
 .library-frame {{ width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; background: #111; }}
 .library-frame-empty {{ background: #0c0c0c; }}
 .library-card-title {{ font-weight: 600; font-size: 0.9rem; margin-top: 8px; }}
+.library-card-info {{ margin-top: 6px; }}
+.library-card-info:hover {{ color: {ORANGE} !important; }}
 .library-card-sub {{ font-family: {_MONO}; font-size: 0.72rem; color: {ALUMINIUM}; }}
 .library-roll {{ border-top: 1px solid {EDGE}; padding-top: 10px; margin-top: 12px; }}
 .library-frames {{

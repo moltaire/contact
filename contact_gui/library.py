@@ -38,8 +38,10 @@ def _img(url: str, classes: str) -> ui.element:
 
 
 class LibraryView:
-    def __init__(self, on_open: Callable[[Path, str | None], None]) -> None:
-        self.on_open = on_open  # (roll folder, frame file name or None)
+    def __init__(self, on_open: Callable[..., None]) -> None:
+        # on_open(roll folder, frame file name or None, tab=None): open a roll, in review
+        # at a frame, or on a given step such as "roll" for its roll info
+        self.on_open = on_open
         self.query = ""
         self.view = "Rolls"
         self.show_filters = False
@@ -226,11 +228,19 @@ class LibraryView:
                     _img(library_thumb_url(image, 160), "library-frame")
                 for _ in range(_CARD_FRAMES - len(images)):
                     ui.element("div").classes("library-frame library-frame-empty")
-            ui.label(roll.label).classes("library-card-title truncate")
             count = (f"{len(matched)} of {len(roll.frames)} match" if matched is not None
                      else f"{roll.image_count} frames")
-            ui.label(" · ".join(v for v in [roll.date, roll.info.get("film", ""), count] if v)) \
-                .classes("library-card-sub truncate")
+            with ui.row().classes("w-full items-start no-wrap gap-2"):
+                with ui.column().classes("grow gap-0 min-w-0"):
+                    ui.label(roll.label).classes("library-card-title truncate w-full")
+                    ui.label(" · ".join(v for v in [roll.date, roll.info.get("film", ""), count]
+                                        if v)).classes("library-card-sub truncate w-full")
+                # straight to the roll's info instead of review; .stop keeps the card's
+                # own click from firing as well
+                ui.button(icon="edit_note") \
+                    .props("flat dense round size=sm color=grey-6").classes("library-card-info") \
+                    .on("click.stop", lambda: self.on_open(roll.folder, None, tab="roll")) \
+                    .tooltip("Roll info")
 
     def _frame_groups(self, rolls: list[Roll], by_roll: dict[int, list[Hit]]) -> None:
         budget = _MAX_FRAMES
