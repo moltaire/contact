@@ -27,9 +27,20 @@ class Roll:
     folder: Path
     info: dict                      # roll.yaml as a dict
     frames: list[Frame]             # tagged frames only, in file order
-    image_count: int                # all images in the folder, tagged or not
-    cover: Path | None              # first image, for a thumbnail
+    images: list[Path]              # all images in the folder, tagged or not
     signature: tuple = field(default=(), repr=False, compare=False)
+
+    @property
+    def image_count(self) -> int:
+        return len(self.images)
+
+    @property
+    def cover(self) -> Path | None:
+        return self.images[0] if self.images else None
+
+    @property
+    def year(self) -> str:
+        return self.sort_date[:4]
 
     @property
     def label(self) -> str:
@@ -112,8 +123,7 @@ def scan_roll(folder: Path, previous: Roll | None = None) -> Roll | None:
         folder=folder,
         info=load_roll_yaml(folder),
         frames=[Frame(img, _read_xmp_meta(img.with_suffix(".xmp"))) for img in tagged],
-        image_count=len(images),
-        cover=images[0],
+        images=images,
         signature=signature,
     )
 
@@ -215,6 +225,11 @@ def search(rolls: list[Roll], query: str) -> list[Hit]:
             if all(text in (fields[name] if name else everything) for name, text in terms):
                 hits.append(Hit(roll, frame))
     return hits
+
+
+def all_frames(rolls: list[Roll]) -> list[Hit]:
+    """Every tagged frame of the library, in roll order."""
+    return [Hit(roll, frame) for roll in rolls for frame in roll.frames]
 
 
 def facets(rolls: list[Roll]) -> dict[str, list[tuple[str, int]]]:

@@ -1,9 +1,13 @@
 """
 contact_gui/library.py
 ──────────────────────
-The library: every roll in one parent folder as a sortable table, and a search
-across all their frames. Clicking a roll opens it; clicking a found frame opens
-its roll in review at that frame.
+The library: every roll in one parent folder, shown as pictures.
+
+Two views of the same thing, switched with a toggle:
+  Rolls   one card per roll — a miniature contact sheet of eight frames — grouped by year
+  Frames  the frames themselves, grouped by roll
+Both follow the search box and the filters. Clicking a roll opens it; clicking a frame
+opens its roll in review at that frame.
 """
 
 from collections.abc import Callable
@@ -11,36 +15,34 @@ from pathlib import Path
 
 from nicegui import run, ui
 
-from processor.library import Hit, Roll, facets, search
+from processor.library import Hit, Roll, all_frames, facets, search
 
 from .files import library_thumb_url
 from .folder import _pick_folder_dialog
 from .state import display_path, state
 
-_MAX_HITS = 400  # frames drawn for one search; more than that needs a narrower query
-_FACETS = {"people": "person", "place": "place", "film": "film"}  # facet → query prefix
-
-_COLUMNS = [
-    {"name": "cover", "label": "", "field": "cover", "align": "left"},
-    {"name": "label", "label": "Roll", "field": "label", "align": "left", "sortable": True},
-    {"name": "date", "label": "Date", "field": "date", "align": "left", "sortable": True},
-    {"name": "film", "label": "Film", "field": "film", "align": "left", "sortable": True},
-    {"name": "camera", "label": "Camera", "field": "camera", "align": "left", "sortable": True},
-    {"name": "place", "label": "Place", "field": "place", "align": "left", "sortable": True},
-    {"name": "people", "label": "People", "field": "people", "align": "left"},
-    {"name": "frames", "label": "Frames", "field": "frames", "align": "right", "sortable": True},
-]
+_CARD_FRAMES = 8     # frames on a roll card: two rows of four
+_MAX_FRAMES = 400    # frames drawn at once in the Frames view
+_MAX_CHIPS = 24      # filter chips per row
+_FACETS = {"people": "person", "place": "place", "film": "film"}  # row → query prefix
 
 
-def _short(items: list[str], limit: int = 4) -> str:
+def _short(items: list[str], limit: int = 2) -> str:
     more = len(items) - limit
     return ", ".join(items[:limit]) + (f" +{more}" if more > 0 else "")
+
+
+def _img(url: str, classes: str) -> ui.element:
+    """A plain <img>: hundreds of them are lighter than as many image components."""
+    return ui.element("img").props(f'src="{url}" loading="lazy" draggable="false"').classes(classes)
 
 
 class LibraryView:
     def __init__(self, on_open: Callable[[Path, str | None], None]) -> None:
         self.on_open = on_open  # (roll folder, frame file name or None)
         self.query = ""
+        self.view = "Rolls"
+        self.show_filters = False
         self._loading = False
 
     @ui.refreshable_method
@@ -51,20 +53,15 @@ class LibraryView:
             return
 
         with ui.row().classes("w-full items-center no-wrap gap-3"):
-            self.search = ui.input(placeholder="Search all frames — ines, tower, "
-                                               "\"national theatre\", film:hp5, place:athens") \
+            self.search = ui.input(placeholder="Search all frames") \
                 .props("outlined dense clearable").classes("grow library-search")
             self.search.value = self.query
-            self.search.on("keydown.enter", lambda: self._search(self.search.value))
             self.search.on("clear", lambda: self._search(""))
             self.search.on_value_change(lambda e: self._search(e.value))
-            ui.button(icon="refresh", on_click=self.reload).props("flat round dense color=grey-6") \
-                .tooltip("Read the library folder again")
-        with ui.row().classes("w-full items-center no-wrap gap-2"):
-            self.summary = ui.label().classes("text-xs text-grey-6 mono")
-            ui.space()
-            ui.label(display_path(state.library_root)).classes("text-xs text-grey-6 mono")
-            ui.button("Change", on_click=self._change_root).props("flat dense size=sm")
+            ui.toggle(["Rolls", "Frames"], value=self.view, on_change=self._set_view) \
+                .props("dense no-caps unelevated toggle-color=primary toggle-text-color=black")
+            ui.button("Filters", icon="tune", on_click=self._toggle_filters) \
+                .props("flat dense color=grey-6")
 
         if state.library is None:
             with ui.row().classes("items-center gap-2"):
@@ -74,6 +71,7 @@ class LibraryView:
                 self._loading = True
                 ui.timer(0.1, self._load, once=True)
             return
+        self._filters()
         self._body()
 
     # ── Library folder ────────────────────────────────────────────────────────
@@ -125,99 +123,137 @@ class LibraryView:
         self._loading = False
         self.render.refresh()
 
-    # ── Rolls and search results ──────────────────────────────────────────────
+    # ── Search, view and filters ──────────────────────────────────────────────
 
     def _search(self, query: str | None) -> None:
         query = query or ""
         if query != self.query:
             self.query = query
+            self._filters.refresh()
             self._body.refresh()
 
-    def _add_term(self, prefix: str, value: str) -> None:
+    def _set_view(self, e) -> None:
+        self.view = e.value or "Rolls"
+        self._body.refresh()
+
+    def _toggle_filters(self) -> None:
+        self.show_filters = not self.show_filters
+        self._filters.refresh()
+
+    def _toggle_term(self, prefix: str, value: str) -> None:
         term = f'{prefix}:"{value}"'
-        query = self.query.replace(term, "").strip() if term in self.query \
+        query = " ".join(self.query.replace(term, "").split()) if term in self.query \
             else f"{self.query} {term}".strip()
         self.search.set_value(query)
 
     @ui.refreshable_method
+    def _filters(self) -> None:
+        """Collapsed by default. One wrapping row per kind — nothing scrolls sideways."""
+        if not self.show_filters:
+            return
+        found = facets(state.library or [])
+        with ui.column().classes("w-full gap-1 library-filters"):
+            for key, prefix in _FACETS.items():
+                values = found[key]
+                if not values:
+                    continue
+                with ui.row().classes("w-full items-start no-wrap gap-3"):
+                    ui.label(key if key != "place" else "places").classes("sheet-key")
+                    with ui.row().classes("grow gap-1"):
+                        for value, _count in values[:_MAX_CHIPS]:
+                            on = f'{prefix}:"{value}"' in self.query
+                            ui.chip(value, color="primary" if on else "grey-9",
+                                    text_color="white",
+                                    on_click=lambda prefix=prefix, value=value:
+                                        self._toggle_term(prefix, value)) \
+                                .props("dense square").classes("candidate")
+                        if len(values) > _MAX_CHIPS:
+                            ui.label(f"+{len(values) - _MAX_CHIPS} more — type to search") \
+                                .classes("text-xs text-grey-6 self-center")
+            with ui.row().classes("w-full items-center no-wrap gap-3"):
+                ui.label("library").classes("sheet-key")
+                ui.label(display_path(state.library_root)).classes("text-xs text-grey-6 mono")
+                ui.button("Change", on_click=self._change_root).props("flat dense size=sm")
+                ui.button("Read again", on_click=self.reload).props("flat dense size=sm")
+
+    # ── Rolls and frames ──────────────────────────────────────────────────────
+
+    @ui.refreshable_method
     def _body(self) -> None:
         rolls = state.library or []
-        frames = sum(len(r.frames) for r in rolls)
         if not rolls:
-            self.summary.set_text("")
             ui.label("No rolls found in this folder. A roll is a subfolder with scans and a "
                      "roll.yaml or tagged frames.").classes("text-grey-7")
             return
-        self._facets(rolls)
-        if not self.query.strip():
-            self.summary.set_text(f"{len(rolls)} rolls · {frames} tagged frames")
-            self._table(rolls)
-            return
-        hits = search(rolls, self.query)
-        found_rolls = len({id(h.roll) for h in hits})
-        self.summary.set_text(
-            f"{len(hits)} frame{'s' if len(hits) != 1 else ''} in {found_rolls} "
-            f"roll{'s' if found_rolls != 1 else ''}" if hits else "Nothing found"
-        )
-        self._results(hits)
+        searching = bool(self.query.strip())
+        hits = search(rolls, self.query) if searching else all_frames(rolls)
+        by_roll: dict[int, list[Hit]] = {}
+        for hit in hits:
+            by_roll.setdefault(id(hit.roll), []).append(hit)
+        # while searching, only rolls with a match; otherwise every roll, tagged or not
+        shown = [r for r in rolls if id(r) in by_roll] if searching else rolls
 
-    def _facets(self, rolls: list[Roll]) -> None:
-        found = facets(rolls)
-        with ui.row().classes("w-full no-wrap items-center gap-1 strip h-8"):
-            for key, prefix in _FACETS.items():
-                for value, _count in found[key][:8]:
-                    on = f'{prefix}:"{value}"' in self.query
-                    ui.chip(value, color="primary" if on else "grey-9", text_color="white",
-                            on_click=lambda prefix=prefix, value=value: self._add_term(prefix, value)) \
-                        .props("dense square").classes("shrink-0 candidate")
-                ui.element("div").classes("w-3 shrink-0")
+        n_frames, n_rolls = len(hits), len(shown)
+        ui.label(
+            "Nothing found" if searching and not hits else
+            f"{n_frames} frame{'s' if n_frames != 1 else ''} in "
+            f"{n_rolls} roll{'s' if n_rolls != 1 else ''}"
+        ).classes("text-xs text-grey-6 mono")
 
-    def _table(self, rolls: list[Roll]) -> None:
-        rows = [{
-            "folder": str(r.folder),
-            "cover": library_thumb_url(r.cover, 160) if r.cover else "",
-            "label": r.label,
-            "date": r.date,
-            "film": r.info.get("film", ""),
-            "camera": r.info.get("camera", ""),
-            "place": _short(r.locations, 2),
-            "people": _short(r.people),
-            "frames": len(r.frames) if len(r.frames) == r.image_count
-                      else f"{len(r.frames)} / {r.image_count}",
-        } for r in rolls]
-        table = ui.table(columns=_COLUMNS, rows=rows, row_key="folder", pagination=0) \
-            .props("flat dense hide-pagination").classes("w-full library-table")
-        table.add_slot("body-cell-cover", '''
-            <q-td :props="props" style="width: 76px; padding: 4px 8px">
-                <img v-if="props.value" :src="props.value" loading="lazy"
-                     style="width: 60px; height: 44px; object-fit: cover; display: block">
-            </q-td>''')
-        table.on("rowClick", lambda e: self.on_open(Path(e.args[1]["folder"]), None))
+        if self.view == "Rolls":
+            self._roll_cards(shown, by_roll if searching else {})
+        else:
+            self._frame_groups(shown, by_roll)
 
-    def _results(self, hits: list[Hit]) -> None:
-        shown = hits[:_MAX_HITS]
-        if len(hits) > len(shown):
-            ui.label(f"Showing the first {len(shown)} frames — add a word to narrow it down.") \
-                .classes("text-xs text-grey-6")
-        groups: dict[int, list[Hit]] = {}
-        for hit in shown:
-            groups.setdefault(id(hit.roll), []).append(hit)
-        for group in groups.values():
-            roll = group[0].roll
-            with ui.row().classes("w-full items-baseline gap-3 mt-3 library-roll"):
+    def _roll_cards(self, rolls: list[Roll], matches: dict[int, list[Hit]]) -> None:
+        years: dict[str, list[Roll]] = {}
+        for roll in rolls:
+            years.setdefault(roll.year or "Undated", []).append(roll)
+        for year, group in years.items():
+            ui.label(year).classes("library-year")
+            with ui.element("div").classes("library-grid"):
+                for roll in group:
+                    self._roll_card(roll, matches.get(id(roll)))
+
+    def _roll_card(self, roll: Roll, matched: list[Hit] | None) -> None:
+        # matching frames first, then the rest of the roll in order
+        first = [hit.frame.image for hit in matched or []]
+        images = list(dict.fromkeys([*first, *roll.images]))[:_CARD_FRAMES]
+        with ui.element("div").classes("library-card") \
+                .on("click", lambda: self.on_open(roll.folder, None)):
+            with ui.element("div").classes("library-sheet"):
+                for image in images:
+                    _img(library_thumb_url(image, 160), "library-frame")
+                for _ in range(_CARD_FRAMES - len(images)):
+                    ui.element("div").classes("library-frame library-frame-empty")
+            ui.label(roll.label).classes("library-card-title truncate")
+            count = (f"{len(matched)} of {len(roll.frames)} match" if matched is not None
+                     else f"{roll.image_count} frames")
+            ui.label(" · ".join(v for v in [roll.date, roll.info.get("film", ""), count] if v)) \
+                .classes("library-card-sub truncate")
+
+    def _frame_groups(self, rolls: list[Roll], by_roll: dict[int, list[Hit]]) -> None:
+        budget = _MAX_FRAMES
+        for roll in rolls:
+            group = by_roll.get(id(roll), [])
+            if not group:
+                continue
+            if budget <= 0:
+                ui.label(f"Showing the first {_MAX_FRAMES} frames — search or filter to narrow "
+                         "it down.").classes("text-xs text-grey-6 mt-3")
+                break
+            group, budget = group[:budget], budget - len(group)
+            with ui.row().classes("w-full items-baseline gap-3 library-roll"):
                 ui.label(roll.label).classes("mono font-bold cursor-pointer") \
-                    .on("click", lambda roll=roll: self.on_open(roll.folder, None)) \
-                    .tooltip("Open this roll")
+                    .on("click", lambda roll=roll: self.on_open(roll.folder, None))
                 ui.label(" · ".join(v for v in [roll.date, roll.info.get("film", ""),
-                                                 _short(roll.locations, 2)] if v)) \
+                                                 _short(roll.locations)] if v)) \
                     .classes("mono text-xs text-grey-6")
                 ui.space()
                 ui.label(f"{len(group)} of {len(roll.frames)}").classes("mono text-xs text-grey-6")
-            with ui.row().classes("w-full gap-2"):
+            with ui.element("div").classes("library-frames"):
                 for hit in group:
-                    with ui.image(library_thumb_url(hit.frame.image, 320)).props("fit=cover") \
-                            .classes("w-40 h-28 cursor-pointer frame library-hit") \
-                            .on("click", lambda hit=hit: self.on_open(hit.roll.folder,
-                                                                      hit.frame.image.name)):
-                        ui.tooltip(hit.frame.meta.get("description", "") or hit.frame.image.name) \
-                            .classes("text-sm max-w-xs")
+                    # no caption or tooltip: the frame speaks for itself
+                    _img(library_thumb_url(hit.frame.image, 320), "library-hit") \
+                        .on("click", lambda hit=hit: self.on_open(hit.roll.folder,
+                                                                  hit.frame.image.name))

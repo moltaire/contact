@@ -48,7 +48,7 @@ Decisions: all processed rolls live in ONE parent folder (set it in Settings). T
 - [x] `processor/library.py`: scan the library folder for subfolders with a `roll.yaml`, read roll info and every frame's sidecar; cache and re-read only changed folders. With tests (the project's first)
 - [x] Search logic: free text over descriptions, tags, people, landmarks, places and roll fields (film, camera, lens, date); pure functions, tested
 - [x] Library folder: chosen on the Library screen itself ("Change"), saved in settings.json
-- [x] Library screen before a roll is opened: sortable roll table (label, date, film, camera, place, people, frame count, first frame as thumbnail); click opens the roll
+- [x] (redone 2026-11-16 as roll cards — eight frames as a mini contact sheet, year headings, Rolls/Frames toggle, filters collapsed, no hover text; the table was rejected) Library screen before a roll is opened: sortable roll table (label, date, film, camera, place, people, frame count, first frame as thumbnail); click opens the roll
 - [x] Search box and result grid of frames, grouped by roll with label and date; filters for people, places, film
 - [x] Open a roll in review at a given frame from a result (thumbnail route must serve frames from any roll in the library, not just the open one)
 - [ ] Later: static library page that links the rolls' contact sheets, for browsing and sharing without the app

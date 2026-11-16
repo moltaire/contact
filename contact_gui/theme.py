@@ -115,15 +115,39 @@ body.body--light .sheet-key {{ color: #6b6a66; }}
 .sheet-select .q-field__control, .sheet-select .q-field__native {{ min-height: 1.6rem; height: 1.6rem; padding: 0; }}
 .sheet-select .q-field__marginal {{ height: 1.6rem; }}
 
-/* Library: roll table and search results */
-.library-table {{ background: transparent; }}
-.library-table .q-table__card, .library-table.q-table__card {{ background: transparent; box-shadow: none; }}
-.library-table tbody tr {{ cursor: pointer; }}
-.library-table th {{ font-family: {_MONO}; font-size: 0.72rem; letter-spacing: 0.06em; color: {ALUMINIUM}; }}
-.library-table td {{ font-size: 0.85rem; }}
-.library-roll {{ border-top: 1px solid {EDGE}; padding-top: 10px; }}
-body.body--light .library-roll {{ border-top-color: #d5d4cf; }}
+/* Library: roll cards (miniature contact sheets), frame grids, filters */
+.library-year {{
+    font-family: {_MONO}; font-size: 0.8rem; letter-spacing: 0.08em; color: {ALUMINIUM};
+    margin: 14px 0 2px; width: 100%; border-top: 1px solid {EDGE}; padding-top: 10px;
+}}
+.library-grid {{
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px; width: 100%;
+}}
+.library-card {{ cursor: pointer; min-width: 0; }}
+.library-sheet {{
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;
+    background: #050505; padding: 6px; border-radius: 3px; border: 1px solid {EDGE};
+}}
+.library-card:hover .library-sheet {{ border-color: {ORANGE}; }}
+.library-frame {{ width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; background: #111; }}
+.library-frame-empty {{ background: #0c0c0c; }}
+.library-card-title {{ font-weight: 600; font-size: 0.9rem; margin-top: 8px; }}
+.library-card-sub {{ font-family: {_MONO}; font-size: 0.72rem; color: {ALUMINIUM}; }}
+.library-roll {{ border-top: 1px solid {EDGE}; padding-top: 10px; margin-top: 12px; }}
+.library-frames {{
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px; width: 100%;
+}}
+.library-hit {{
+    width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; cursor: pointer;
+    background: #0a0a0a; border-radius: 2px;
+}}
 .library-hit:hover {{ outline: 2px solid {ORANGE}; outline-offset: 2px; }}
+.library-filters {{ border: 1px solid {EDGE}; border-radius: 3px; padding: 10px 12px; }}
+body.body--light .library-year, body.body--light .library-roll {{ border-top-color: #d5d4cf; }}
+body.body--light .library-filters {{ border-color: #d5d4cf; }}
+body.body--light .library-card-sub, body.body--light .library-year {{ color: #6b6a66; }}
 
 /* Keyboard shortcuts overlay */
 .help-card {{ width: 860px; max-width: 94vw; padding: 20px 24px; gap: 16px; }}

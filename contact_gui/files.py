@@ -21,7 +21,7 @@ from .state import state
 
 _SIZES = (160, 320, 1600)
 _cache: dict[tuple[str, float, int], bytes] = {}
-_CACHE_LIMIT = 600
+_CACHE_LIMIT = 6000  # the library shows eight small previews per roll
 
 
 def thumb_url(image: Path, size: int = 320) -> str:
