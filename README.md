@@ -1,24 +1,26 @@
-# 🎞️ contact
+# contact
 
-<img src="docs/contact.png" width="100%" alt="contact screenshot">
+<img src="docs/contact.png" width="100%" alt="A frame in contact: the scan large on the left, its description, the entry line and its people, landmarks, place and tags on the right, the roll's filmstrip below">
 
-contact is a tool to tag and archive analog film scans using locally running AI. Set up a roll, point it at a folder of scans, and it generates descriptions, tags, and categories for each frame, writing XMP sidecar files and creating a [browsable HTML contact sheet](https://moltaire.github.io/contact).
+contact keeps an archive of analog film scans. A vision model running on your own computer describes and tags every frame. You add what it can't know (who, which building, where), and everything is written next to the scans: XMP sidecars that Lightroom, darktable and Finder read, and an HTML contact sheet per roll ([see one](https://moltaire.github.io/contact)).
+
+- **A library of all your rolls.** Browse them as little contact sheets, or search every frame at once by what is in it, who, where, film or date.
+- **A frame view built for the keyboard.** Step through frames, correct descriptions, add people, landmarks and places, or tell the model a fact and let it rewrite the frame.
+- **Local and plain.** Ollama runs the model, nothing leaves your machine, and all metadata lives in ordinary files next to the scans.
 
 ---
 
 ## Requirements
 
 - Python 3.10+
-- [Ollama](https://ollama.com) with a vision model pulled
+- [Ollama](https://ollama.com) with a vision model
 
 ```bash
 brew install ollama        # or download it from ollama.com
 ollama pull gemma4:e4b     # about 10 GB; runs comfortably in 16 GB of RAM
 ```
 
-contact starts Ollama itself when it is not running.
-
----
+contact starts Ollama itself when it isn't running.
 
 ## Install
 
@@ -26,142 +28,123 @@ contact starts Ollama itself when it is not running.
 uv tool install .
 ```
 
-This installs two commands: `contact` (CLI) and `contact-ui` (browser app; `contact-gui` is the same thing).
+This installs `contact-ui` (the app) and `contact` (the command line).
 
 ---
 
-## App
+## The app
 
 ```bash
 contact-ui
-# or with a folder pre-loaded:
-contact-ui --folder ~/scans/tuscany/
 ```
 
-The app runs locally and opens in your browser. The browser's back and forward buttons work throughout.
+It runs locally and opens in your browser. The browser's back and forward buttons work everywhere, `?` lists every shortcut, and the gear opens Settings.
 
-**Library** — the home screen. Point it once at the folder that holds all your roll folders. Every roll appears as a small contact sheet of its first frames (favourites first), grouped by year. A switch (or `V`) changes between **Rolls** and **Frames**, and both follow the search box: it looks through descriptions, tags, people, landmarks, places, and each roll's film, camera, lens and date. Search ignores case and accents, quotes keep words together, and a prefix limits a word to one field (`person:ines`, `place:athens`, `film:hp5`, `tag:tower`, `date:2024`, `is:starred`). **Filters** offers the people, places and film stocks found in the library. The library only reads your folders; the contact sheets stay the thing you browse and share.
+### Adding a new roll
 
-**A frame** — click one to see it large, over the library or a roll's page. ← → step through the frames shown (search results run across rolls), `S` marks a favourite, `[` `]` rotate, `R` opens its roll, Esc goes back to where you were. `E` switches between **View** and **Edit**; Edit adds the filmstrip and the editing tools below, and the app remembers which one you used last. Click a roll card to see just that roll's frames; the arrow on the card opens the roll itself.
+1. **New roll** (top right) opens a folder of fresh scans.
+2. The roll page opens with its form: label, film, camera, lenses, date, location (`City, Country`), the people and landmarks on the roll, lab and notes. Earlier entries are suggested as you type.
+3. **Tag N new frames.** Tagging runs in the background; frames fill in as they finish, and you can switch pages or close the browser meanwhile.
+4. **Edit frames** to go through the results (see below).
+5. **Rename to …** gives the folder the standard `date_label` name, and **Move into library** moves it in with your other rolls. The contact sheet (`index.html`) is already in the folder.
 
-**A roll** opens from the library, or with **New roll** for a folder of new scans, on one page under a breadcrumb back to the library. It shows the roll at a glance (film, camera, lenses, lab, location, people, landmarks), your notes, the generated summary (click **summary** to fold it away; the app remembers) and every frame in a grid.
+### Browsing and touching up
 
-- **Edit info** turns the roll's facts into a form right there, with the frames still in view; Save or Esc closes it. A new roll opens with the form.
-- **Tag N new frames** starts tagging: it runs in the background, frames fill in as they finish, and you can switch tabs, reload or close the browser meanwhile.
-- **Re-tag frames…** lets you click the frames to re-tag (Shift-click picks a range), then **Re-tag N frames**; Esc cancels. Clicking an untagged frame, or ⌘/Ctrl-clicking any frame, starts picking too.
-- Also here: open the contact sheet, rename the folder to the standard `date_label` pattern, and move a roll that lives elsewhere into the library.
-- Esc steps out one level at a time: picking, the form, then back to the library.
+<img src="docs/screenshots/contact_1_library.png" width="100%" alt="The library: a roll shown as a small contact sheet under its year">
 
-**Editing a frame** is built for the keyboard. **Edit frames** on the roll page opens the first frame in Edit; Return in View does too. Edits are saved automatically. Below the description there is one entry line and a sheet listing the people, landmarks, place, tags and category. When you close the frame, the contact sheets and summaries of the rolls you changed catch up.
-   - **The entry line has five modes:** fact, tags, people, landmarks, place. Return opens it, Tab switches mode while it is empty, Return applies and leaves it. `T`, `P`, `L`, `W`, `F` open it straight in a mode, and it remembers the last one.
-   - **Fact:** tell the model something it cannot know ("this is the Parthenon in Athens") and it rewrites description, tags and category, with undo. Facts are stored with the frame and re-applied when it is re-tagged.
-   - **People, landmarks, place, tags:** type names, several with commas; Tab completes a known name. The roll's people, landmarks and places appear under the line to click. New names are added to the roll.
-   - **Removing:** click an entry in the sheet, or press Backspace on an empty line.
-   - **Several frames:** ⌘/Ctrl-click or Shift-click frames in the filmstrip, or Shift-← → from the current one (`A` selects all, Esc clears) and whatever you enter applies to all of them.
-   - **Favourites and rotation:** `S` marks a favourite (shared with the contact sheet). `[` and `]` turn a sideways scan; only the file's orientation flag changes, so the image data is untouched and the rotation shows in Finder, Lightroom and the contact sheet too.
-   - Slash commands also work in fact mode (`/person Felix`, `/landmark …`, `/place …`, `/tag …`), and `?` shows all shortcuts.
+The **library** is the home page. Point it once at the folder that holds all your roll folders. Each roll shows as a small contact sheet of its first frames (favourites first), grouped by year. Click a roll to see its frames, or its arrow to open the roll's page.
 
-Dark theme by default; start with `--light` for the light one.
+<img src="docs/screenshots/contact_2_search.png" width="100%" alt="Searching the library for tower, in the Frames view">
+
+**Search** looks through descriptions, tags, people, landmarks and places, and each roll's film, camera, lens and date. It ignores case and accents; quotes keep words together, and a prefix limits a word to one field: `person:ines`, `place:athens`, `film:hp5`, `tag:tower`, `date:2024`, `is:starred`. **Filters** lists the people, places and film stocks in the library. The switch, or `V`, shows the results as **Rolls** or as **Frames**.
+
+### A roll
+
+<img src="docs/screenshots/contact_3_roll.png" width="100%" alt="A roll's page: its facts in two columns, the notes, the summary, a row of actions and the frames">
+
+A roll's page shows its facts, your notes, the generated summary (click **summary** to fold it away) and every frame.
+
+- **Edit info** turns the facts into the form, right there.
+- **Re-tag frames…** lets you pick frames to run through the model again: click them (Shift-click for a range), then **Re-tag N frames**.
+- **Contact sheet** opens the roll's `index.html`.
+- Esc steps back out: picking, the form, then the library.
+
+### A frame
+
+<img src="docs/screenshots/contact_4_frame.png" width="100%" alt="A frame in View: the scan, its description and its people, landmarks, place, tags and category">
+
+Click any frame to see it large, over the library or the roll. ← → step through the frames you were looking at, across rolls when they come from a search. Esc goes back to where you were.
+
+- `S` marks a favourite. Favourites are shared with the contact sheet.
+- `[` `]` turn a sideways scan. Only the file's orientation flag changes, so the image data stays untouched and the rotation shows in Finder, Lightroom and the contact sheet too.
+- `R` opens the frame's roll.
+- `E` switches between **View** and **Edit**, and the app remembers which you used last.
+
+**Edit** adds the roll's filmstrip and one entry line under the description. Everything is saved as you go.
+
+- **The entry line has five modes:** fact, tags, people, landmarks and place (`F`, `T`, `P`, `L`, `W` open it in that mode). Return opens it, Tab switches the mode while it's empty, Return applies and leaves it.
+- **A fact** is something the model can't know ("this is the Parthenon in Athens"). The model rewrites the description, tags and category with it, and you can undo. Facts stay with the frame and are used again when it's re-tagged.
+- **Names** go in several at a time, separated by commas, and Tab completes a known one. The roll's people, landmarks and places appear under the line to click, and `1`–`9` toggle the roll's people.
+- **Removing:** click an entry in the sheet, or press Backspace on an empty line.
+- **Several frames at once:** ⌘/Ctrl-click or Shift-click in the filmstrip, or Shift-← →, or `A` for all. Whatever you enter then applies to all of them.
+
+When you close the frame view, the contact sheets and summaries of the rolls you changed catch up.
 
 <p>
-  <img src="docs/screenshots/contact_2_roll.png" width="49%" alt="Roll info">
-  <img src="docs/screenshots/contact_3_tagging.png" width="49%" alt="Tagging">
-</p>
-<p>
-  <img src="docs/screenshots/contact_4_review.png" width="49%" alt="Review">
-  <img src="docs/screenshots/contact_5_sheet.png" width="49%" alt="Contact sheet">
+  <img src="docs/screenshots/contact_5_info.png" width="49%" alt="Editing a roll's info in place">
+  <img src="docs/screenshots/contact_6_sheet.png" width="49%" alt="The HTML contact sheet">
 </p>
 
-The gear icon opens **Settings**: choose the vision and text model, tidy the remembered options (places, people, landmarks, lenses, cameras, film stocks, labs) — including moving landmarks that were filed under people, and quit the app.
+**Settings** (the gear) chooses the vision and text model and tidies the remembered options: places, people, landmarks, lenses, cameras, film stocks and labs. It also quits the app.
+
+Other options: `contact-ui --folder DIR` opens a roll straight away, `--library DIR` shows another folder of rolls for one run, and `--light` uses the light theme.
 
 ---
 
-## CLI
+## Command line
+
+The same tagging without the app, for one roll or many:
 
 ```bash
-# Set up a roll interactively, then tag it
-contact --init ~/scans/tuscany/
-
-# Tag without setup
-contact ~/scans/tuscany/
-
-# Multiple rolls — pass several folders or a parent folder
-contact --init ~/scans/2024/
-contact ~/scans/2024/
-
-# Common flags
-contact ~/scans/tuscany/ --dry-run    # preview without writing
-contact ~/scans/tuscany/ --force      # re-tag already-tagged images
-contact ~/scans/tuscany/ --verbose    # show full AI output per frame
+contact --init ~/scans/tuscany/       # describe the roll in the terminal, then tag it
+contact ~/scans/tuscany/              # tag what isn't tagged yet
+contact ~/scans/2024/                 # a parent folder: every roll in it
 ```
-
-### Options
 
 | Flag | Description |
 |---|---|
-| `--init` | Run interactive roll setup |
-| `--model MODEL` | Vision model (default: the best installed vision model, e.g. `gemma4:e4b`) |
-| `--text-model MODEL` | Separate model for the roll summary (default: same as `--model`) |
-| `--dry-run` | Preview without writing any files |
-| `--force` | Re-tag images that already have a sidecar |
-| `--verbose` | Print full AI output for each frame |
-| `--no-rename-folder` | Skip renaming the folder after processing |
+| `--init` | Describe the roll interactively first |
+| `--model MODEL` | Vision model (default: the best installed one, e.g. `gemma4:e4b`) |
+| `--text-model MODEL` | Model for the roll summary (default: the vision model) |
+| `--force` | Re-tag frames that already have a sidecar |
+| `--dry-run` | Show what would be written, write nothing |
+| `--verbose` | Print the model's full answer per frame |
+| `--no-rename-folder` | Keep the folder's name |
 
 ---
 
-## Roll setup
+## What's written to disk
 
-Roll-level metadata is saved to `roll.yaml` in the scan folder:
+Everything sits next to the scans, so the folder is the archive:
 
-- **Film stock, camera** — pick from suggestions or type your own
-- **Lenses, locations, people, landmarks** — multiple values allowed; previous entries are suggested. Locations are written as `City, Country`.
-- **Lab, lab notes, date, notes** — free text
-- **Label** — short name used as the contact sheet title (e.g. `Oslo Summer 2024`)
+- **`roll.yaml`**: the roll's facts and, after tagging, its summary.
+- **One XMP sidecar per frame**: description, tags, category, people, landmarks, place, favourite (as a 5-star rating) and the facts you gave the model, plus the roll's film, camera and lens. Lightroom, darktable, Finder and Spotlight can read them.
+- **`index.html`**: a self-contained contact sheet with the roll's details, a lightbox, search (`/` or Return) and favourites.
 
-History is remembered across sessions in `~/.config/contact/history.json`.
+Your remembered options are kept in `~/.config/contact/history.json`, and the app's settings in `settings.json` next to it.
 
----
+## How tagging works
 
-## Output
+Each frame goes to the vision model once. It answers with a two- or three-sentence description of what is visible, a few generic lowercase tags and one category. It is told not to guess who or where: names, landmarks and places are yours to add. When you state a fact, it goes back to the model to rewrite that frame. Tags are cleaned in code after every answer: lowercased, without duplicates, and never a person, landmark or place, since those have their own fields. After a roll is tagged, a text model writes the short summary of the whole roll.
 
-**XMP sidecars** (one per image) contain the AI-generated description, tags, and category, plus roll metadata and anything added while editing: people, landmarks, place and the facts you gave the model. Readable by Lightroom, darktable, Finder, and Spotlight.
+## Try it
 
-**`index.html`** — a self-contained contact sheet with:
-- Image overview and lightbox
-- Roll metadata
-- Full-text search across descriptions, tags, filenames, and categories (`/` or `Enter` to focus)
-- Star frames to pin them to the top
-
----
-
-## How it works
-
-Each frame is sent to a local vision model once. It answers with a 2–3 sentence description of what is physically visible, a handful of generic lowercase tags, and one category. It is told not to guess who or where — names, landmarks and places are yours to add while editing, where a fact you state is passed back to the model to rewrite the frame.
-
-Tags are cleaned in code after every answer and edit: lowercased, de-duplicated, and never a person, landmark or place, which have their own fields.
-
-After all frames are processed, a short summary of the whole roll is written to the HTML index. It is refreshed when you open the contact sheet step after editing frames.
-
-## Try it out
-
-A sample roll is included at `docs/example/sample-roll/`. It has pre-tagged images, XMP sidecars, and a rendered `index.html`. See a live version [here](https://moltaire.github.io/contact). Or run the UI on it yourself:
+A tagged sample roll is in `docs/example/sample-roll/`, with its sidecars and contact sheet ([live version](https://moltaire.github.io/contact)). Open it in the app as a one-roll library; browsing and editing by hand works without Ollama:
 
 ```bash
-# Open the contact sheet directly
-open docs/example/sample-roll/index.html
-
-# Or load it in the app (no Ollama needed to browse and edit by hand)
-contact-ui --folder docs/example/sample-roll/
+contact-ui --library docs/example/
 ```
-
-To re-process it from scratch:
-
-```bash
-contact docs/example/sample-roll/ --force
-```
-
----
 
 ## Limitations
 
-The AI model runs locally, which I prefer for privacy, bandwidth and cost. But the smaller model also comes with limitations. Sometimes descriptions and tags are off. You can use the UI version to review and edit metadata, or just roll with the AI errors. If you have a computer with lots of RAM, feel free to load a bigger vision model and/or a separate text model for text synthesis.
+The model runs on your own computer, which keeps your photos private and costs nothing, but a small model does get things wrong now and then. That is what the frame view is for. With plenty of memory you can choose a bigger vision model, or a separate text model for the summaries, in Settings.

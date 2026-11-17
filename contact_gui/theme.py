@@ -37,6 +37,7 @@ body.body--light .bg-primary.text-white, body.body--light .q-btn.bg-primary {{ c
 .wordmark::after {{
     content: ""; display: inline-block; width: 0.5em; height: 0.5em; margin-left: 0.35em;
     border-radius: 50%; background: {ORANGE};
+    vertical-align: middle; position: relative; top: -0.04em;  /* centred on the lowercase */
 }}
 
 /* Header: the camera's top plate */

@@ -75,7 +75,7 @@ Decisions: all processed rolls live in ONE parent folder (set it in Settings). T
 - [x] Clicking a roll card in the library shows its frames there; the arrow on the card (and R in the viewer) opens the roll's overview
 - [x] Leaving Edit rebuilds the contact sheet and refreshes the roll summary in the background
 - [x] Edit column no longer scrolls sideways
-- [ ] README screenshots still show the old steps — retake
+- [x] README rewritten around the two workflows, with new screenshots (2026-11-17)
 
 ### 11. One frame view (built 2026-11-16)
 - [x] Viewer and Edit page merged into one overlay (`contact_gui/frames.py`): View by default, E toggles Edit (remembered), filmstrip only in Edit

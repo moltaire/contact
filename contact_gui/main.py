@@ -349,11 +349,20 @@ async def index(tab: str = "") -> None:
 def run_app() -> None:
     parser = argparse.ArgumentParser(description="contact — browser UI for tagging film scans.")
     parser.add_argument("--folder", metavar="DIR", help="Roll folder to open on start.")
+    parser.add_argument("--library", metavar="DIR",
+                        help="Folder of rolls to show as the library, for this run only "
+                             "(the saved library stays as it is).")
     parser.add_argument("--port", type=int, default=None, help="Port to serve on (default: a free one).")
     parser.add_argument("--no-browser", action="store_true", help="Do not open the browser.")
     parser.add_argument("--light", action="store_true", help="Use the light theme (default: dark).")
     args = parser.parse_args()
 
+    if args.library:
+        root = Path(args.library).expanduser().resolve()
+        if not root.is_dir():
+            parser.error(f"not a directory: {root}")
+        state.library_root = root  # not saved: set_library would remember it
+        state.library = None
     if args.folder:
         path = Path(args.folder).expanduser().resolve()
         if not path.is_dir():
