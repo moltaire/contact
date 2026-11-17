@@ -181,7 +181,7 @@ async def index(tab: str = "") -> None:
         with ui.dialog() as dialog, ui.card().classes("w-[640px] max-w-full"):
             ui.label("Open a folder of scans").classes("text-lg")
             ui.label("A new roll, or any roll outside the library. contact reads the folder "
-                     "and writes its metadata next to the scans.").classes("text-sm text-grey-6")
+                     "and writes its metadata next to the scans.").classes("text-sm text-quiet")
             with ui.row().classes("w-full items-center no-wrap"):
                 ui.button("Choose folder…", icon="folder_open",
                           on_click=lambda: dialog.submit("browse")).props("outline")
@@ -305,6 +305,17 @@ async def index(tab: str = "") -> None:
     views = {"library": library, "overview": overview}
 
     theme.apply()
+    dark_mode = ui.dark_mode(value=state.dark)
+
+    def show_theme() -> None:
+        # the button offers the other theme
+        theme_button.props(f'icon={"light_mode" if state.dark else "dark_mode"}')
+        theme_tip.set_text("Light theme" if state.dark else "Dark theme")
+
+    def toggle_theme() -> None:
+        state.set_dark(not state.dark)
+        dark_mode.set_value(state.dark)
+        show_theme()
     # Asking Ollama what is installed must not hold up the page: while it is busy
     # tagging, the answer can take longer than a page is allowed to build.
     background_tasks.create(_refresh_models(), name="models")
@@ -317,9 +328,12 @@ async def index(tab: str = "") -> None:
         crumb_roll = ui.label().classes("text-lg mono subtitle truncate")
         ui.space()
         new_roll_button = ui.button("New roll", icon="add", on_click=new_roll) \
-            .props("flat dense no-caps color=grey-5").tooltip("Open a folder of scans")
+            .props("flat dense no-caps color=quiet-strong").tooltip("Open a folder of scans")
+        with ui.button(on_click=lambda: toggle_theme()) \
+                .props("flat round dense color=quiet") as theme_button:
+            theme_tip = ui.tooltip()
         ui.button(icon="settings", on_click=lambda: settings.open()) \
-            .props("flat round dense color=grey-6").tooltip("Settings")
+            .props("flat round dense color=quiet").tooltip("Settings")
 
     start = "library" if state.folder is None else "overview"
     if tab == "library" or (tab in ("overview", "roll") and state.folder is not None):
@@ -342,6 +356,7 @@ async def index(tab: str = "") -> None:
 
     # Buttons and tabs keep focus after a click; only real text fields should swallow arrows.
     ui.keyboard(on_key=on_key, ignore=["input", "select", "textarea"])
+    show_theme()
     show(start)
     remember(replace=True)
 
@@ -354,9 +369,13 @@ def run_app() -> None:
                              "(the saved library stays as it is).")
     parser.add_argument("--port", type=int, default=None, help="Port to serve on (default: a free one).")
     parser.add_argument("--no-browser", action="store_true", help="Do not open the browser.")
-    parser.add_argument("--light", action="store_true", help="Use the light theme (default: dark).")
+    parser.add_argument("--light", action="store_true",
+                        help="Use the light theme for this run (the header's sun/moon "
+                             "switches and remembers it).")
     args = parser.parse_args()
 
+    if args.light:
+        state.dark = False  # this run only: not saved
     if args.library:
         root = Path(args.library).expanduser().resolve()
         if not root.is_dir():
@@ -374,7 +393,7 @@ def run_app() -> None:
         port=args.port or native.find_open_port(8080, 8999),
         title="contact",
         favicon=FAVICON,
-        dark=not args.light,
+        dark=state.dark,
         show=not args.no_browser,
         reload=False,
     )

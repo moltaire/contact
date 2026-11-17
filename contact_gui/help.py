@@ -39,7 +39,7 @@ _SECTIONS = {
         ("Return", "Jump to the search box ( / works too)"),
         ("V", "Switch between Rolls and Frames"),
         ("film:hp5", "Limit a word to a field: person, place, tag, film, camera, date"),
-        ("click a roll", "Show its frames; the → on the card opens the roll's page"),
+        ("click", "A roll card shows its frames; its → opens the roll's page"),
     ],
     "Anywhere": [
         ("?", "Show or hide this overview"),
@@ -61,7 +61,7 @@ class HelpDialog:
             with ui.row().classes("w-full no-wrap gap-10 items-start"):
                 columns = list(_SECTIONS.items())
                 # the command column has longer keys, so it gets a wider key gutter
-                for group, gutter in ((columns[:1], "6.5rem"), (columns[1:], "12rem")):
+                for group, gutter in ((columns[:1], "9rem"), (columns[1:], "10rem")):
                     with ui.column().classes("gap-4 w-1/2"):
                         for title, rows in group:
                             self._section(title, rows, gutter)

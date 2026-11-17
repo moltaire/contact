@@ -1,13 +1,21 @@
 """
 processor/orientation.py
 ────────────────────────
-Rotate a JPEG scan without touching its pixels: only the EXIF orientation flag
-changes. Finder, Lightroom, darktable, browsers and contact itself all show the
-image turned accordingly, and turning it back restores the original exactly.
+Turn a scan a quarter turn without losing anything.
 
-Only the EXIF segment of the file is rewritten; the compressed image data is copied
-byte for byte. The new file is written next to the old one and swapped in only once
-it is complete.
+JPEG and TIFF: only the orientation flag changes. Finder, Lightroom, darktable,
+browsers and contact itself show the image turned accordingly, the image data is
+copied byte for byte, and turning it back restores the original exactly.
+- JPEG: only the EXIF segment is rewritten.
+- TIFF: the flag lives in the file's first IFD. It is changed in place, or, when there
+  is none yet, a copy of that IFD with the flag added is appended to the file and the
+  header points to it; nothing else moves.
+
+PNG: there is no orientation flag that other programs reliably honour, so the pixels
+themselves are turned. PNG is lossless, so this is exact too; text chunks and the
+colour profile are kept.
+
+The new file is always written next to the old one and swapped in only once complete.
 """
 
 import io
@@ -24,6 +32,8 @@ _DEGREES = {1: 0, 6: 90, 3: 180, 8: 270}
 _FLAG = {degrees: flag for flag, degrees in _DEGREES.items()}
 
 _JPEG_EXTS = {".jpg", ".jpeg"}
+_TIFF_EXTS = {".tif", ".tiff"}
+_PNG_EXTS = {".png"}
 
 
 class OrientationError(ValueError):
@@ -31,7 +41,7 @@ class OrientationError(ValueError):
 
 
 def can_rotate(path: Path) -> bool:
-    return path.suffix.lower() in _JPEG_EXTS
+    return path.suffix.lower() in _JPEG_EXTS | _TIFF_EXTS | _PNG_EXTS
 
 
 def _segments(data: bytes) -> list[tuple[int, int, int]]:
@@ -85,8 +95,13 @@ def _find_orientation(tiff: bytes) -> tuple[int, int, str] | None:
 
 
 def read_orientation(path: Path) -> int:
-    """The orientation flag of a JPEG; 1 (upright) when there is none."""
+    """The orientation flag of a JPEG or TIFF; 1 (upright) when there is none."""
     data = path.read_bytes()
+    if path.suffix.lower() in _TIFF_EXTS:
+        found = _find_orientation(data)
+        return found[0] if found else 1
+    if path.suffix.lower() in _PNG_EXTS:
+        return 1  # PNGs are turned in their pixels
     exif = _exif_segment(data, _segments(data))
     if exif is None:
         return 1
@@ -132,10 +147,79 @@ def _with_orientation(data: bytes, flag: int) -> bytes:
     return data[:insert] + segment + data[insert:]
 
 
+def _tiff_with_orientation(data: bytes, flag: int) -> bytes:
+    order = {b"II": "<", b"MM": ">"}.get(data[:2])
+    if order is None:
+        raise OrientationError("not a TIFF file")
+    (magic,) = struct.unpack(order + "H", data[2:4])
+    if magic != 42:
+        raise OrientationError("BigTIFF files are not supported")
+    found = _find_orientation(data)
+    if found:  # change the two bytes in place
+        _, offset, order = found
+        return data[:offset] + struct.pack(order + "H", flag) + data[offset + 2:]
+    # No flag yet: append IFD0 again with an orientation entry, and point the header
+    # at the copy. Values stored elsewhere in the file keep their offsets.
+    (ifd,) = struct.unpack(order + "I", data[4:8])
+    (count,) = struct.unpack(order + "H", data[ifd:ifd + 2])
+    entries = [data[ifd + 2 + 12 * n:ifd + 14 + 12 * n] for n in range(count)]
+    next_ifd = data[ifd + 2 + 12 * count:ifd + 6 + 12 * count]
+    new = struct.pack(order + "HHIH", ORIENTATION, 3, 1, flag) + b"\x00\x00"
+    entries.append(new)
+    entries.sort(key=lambda e: struct.unpack(order + "H", e[:2])[0])  # tags ascend
+    start = len(data) + (len(data) % 2)  # IFDs begin on a word boundary
+    if start + 2 + 12 * len(entries) + 4 > 0xFFFFFFFF:
+        raise OrientationError("the file is too large")
+    block = struct.pack(order + "H", len(entries)) + b"".join(entries) + next_ifd
+    return (data[:4] + struct.pack(order + "I", start) + data[8:]
+            + b"\x00" * (start - len(data)) + block)
+
+
+def _rotate_png(path: Path, clockwise: bool) -> bytes:
+    from PIL import Image, PngImagePlugin
+
+    with Image.open(path) as image:
+        image.load()
+        turned = image.transpose(Image.Transpose.ROTATE_270 if clockwise
+                                 else Image.Transpose.ROTATE_90)
+        info = PngImagePlugin.PngInfo()
+        for key, value in (image.text or {}).items():
+            info.add_text(key, value)
+        options = {"pnginfo": info}
+        for key in ("icc_profile", "dpi", "transparency", "gamma"):
+            if key in image.info:
+                options[key] = image.info[key]
+        buf = io.BytesIO()
+        turned.save(buf, "PNG", **options)
+    return buf.getvalue()
+
+
+def _replace(path: Path, updated: bytes) -> None:
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".rotate-", delete=False) as tmp:
+        tmp.write(updated)
+        tmp_path = Path(tmp.name)
+    try:
+        os.chmod(tmp_path, path.stat().st_mode)
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 def rotate(path: Path, clockwise: bool = True) -> int:
-    """Turn a JPEG a quarter turn for display. Returns the new orientation flag."""
+    """Turn a scan a quarter turn for display. Returns the new orientation flag (always
+    1 for a PNG, whose pixels are turned)."""
     if not can_rotate(path):
-        raise OrientationError("only JPEG files can be rotated")
+        raise OrientationError("only JPEG, TIFF and PNG files can be rotated")
+    suffix = path.suffix.lower()
+    if suffix in _PNG_EXTS:
+        _replace(path, _rotate_png(path, clockwise))
+        return 1
+    if suffix in _TIFF_EXTS:
+        data = path.read_bytes()
+        found = _find_orientation(data)
+        flag = rotated_flag(found[0] if found else 1, clockwise)
+        _replace(path, _tiff_with_orientation(data, flag))
+        return flag
     data = path.read_bytes()
     exif = _exif_segment(data, _segments(data))
     found = _find_orientation(data[exif[0] + 10:exif[1]]) if exif else None
@@ -147,15 +231,7 @@ def rotate(path: Path, clockwise: bool = True) -> int:
     new_scan = updated.index(b"\xff\xda", _segments(updated)[-1][2])
     if data[old_scan:] != updated[new_scan:]:
         raise OrientationError("internal check failed; the file was not changed")
-
-    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".rotate-", delete=False) as tmp:
-        tmp.write(updated)
-        tmp_path = Path(tmp.name)
-    try:
-        os.chmod(tmp_path, path.stat().st_mode)
-        os.replace(tmp_path, path)
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    _replace(path, updated)
     return flag
 
 

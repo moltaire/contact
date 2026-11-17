@@ -1,227 +1,357 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Motorcycle Trip to Prague</title>
+<script>try{var t=localStorage.getItem('contact-theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 <style>
+:root, [data-theme="dark"] {
+  --page: #161616; --top: #0e0e0e; --panel: #1e1e1e; --edge: #333333; --text: #f1f0ec;
+  --muted: #a9a8a3; --accent: #f5961d; --on-accent: #141414; --stage: #0a0a0a;
+}
+[data-theme="light"] {
+  --page: #ecebe8; --top: #f7f6f3; --panel: #ffffff; --edge: #d5d4cf; --text: #161616;
+  --muted: #6b6a66; --accent: #b85e00; --on-accent: #ffffff; --stage: #dcdbd7;
+}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, -apple-system, sans-serif; background: #f0f0f0; color: #1a1a1a; padding: 2rem 1.5rem; }
-.header { margin-bottom: 1.5rem; }
-.header-top { margin-bottom: .5rem; }
-h1 { font-size: 1.4rem; font-weight: 600; }
-.fm-strip { font-family: ui-monospace, 'SF Mono', monospace; font-size: .76rem; line-height: 1.8; margin-bottom: .6rem; }
-.fm-row { display: flex; gap: 0; }
-.fm-key { color: #bbb; min-width: 5ch; margin-right: 1.5ch; flex-shrink: 0; }
-.fm-val { color: #444; }
-.fm-sep { color: #ccc; margin: 0 .3em; }
-#search { width: 100%; display: block; padding: .4rem .7rem; font-size: .85rem; border: 1px solid #ccc; border-radius: 4px; background: #fff; color: #1a1a1a; margin-bottom: .75rem; }
-#search:focus { outline: none; border-color: #888; }
-.fm-summ-key { cursor: pointer; }
-.fm-summ-key:hover { color: #555; }
-.fm-summ-val { color: #555; }
-.fm-summ-label { color: #bbb; margin-right: .4em; }
-.no-results { font-size: .85rem; color: #999; padding: .5rem 0 1rem; display: none; }
-.starred-section { margin-bottom: .25rem; }
-.starred-label { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #ccc; margin-bottom: .5rem; }
-.section-rule { border: none; border-top: 1px solid #e4e4e4; margin: .25rem 0 1rem; }
-.grid { columns: 300px; column-gap: 1rem; }
-.card { background: #fff; border-radius: 6px; overflow: hidden; position: relative; break-inside: avoid; margin-bottom: 1rem; }
-.card img { width: 100%; height: auto; display: block; background: #ddd; cursor: zoom-in; }
-.card-body { padding: .5rem .75rem .6rem; }
-.fname { font-family: monospace; font-size: .68rem; color: #bbb; }
-.star-btn { position: absolute; top: .5rem; right: .5rem; background: rgba(0,0,0,.4); border: none; border-radius: 50%; width: 28px; height: 28px; font-size: .95rem; line-height: 28px; text-align: center; cursor: pointer; color: #fff; opacity: 0; transition: opacity .15s; z-index: 1; }
-.card:hover .star-btn, .card.starred .star-btn { opacity: 1; }
-.card.starred .star-btn { color: #f0b429; }
-#lightbox { display: none; position: fixed; inset: 0; z-index: 1000; flex-direction: column; }
-#lightbox.open { display: flex; }
-#lb-bg { position: absolute; inset: 0; background: rgba(0,0,0,.92); }
-#lb-close { position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,.15); border: none; color: #fff; font-size: 1.4rem; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; }
-#lb-main { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 1rem 4rem; }
-#lb-img { position: relative; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 2px; z-index: 1; }
-#lb-prev, #lb-next { position: fixed; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.12); border: none; color: #fff; font-size: 2.2rem; width: 52px; height: 72px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; }
-#lb-prev { left: .5rem; }
-#lb-next { right: .5rem; }
-#lb-prev:hover, #lb-next:hover, #lb-close:hover { background: rgba(255,255,255,.25); }
-#lb-info { position: relative; z-index: 1; background: rgba(0,0,0,.65); border-top: 1px solid rgba(255,255,255,.07); padding: .6rem 1.5rem; display: flex; flex-direction: column; gap: .35rem; }
-.lb-top { display: flex; align-items: center; gap: .75rem; }
-#lb-star { background: none; border: none; color: #666; font-size: 1rem; cursor: pointer; padding: 0; line-height: 1; }
-#lb-star:hover { color: #f0b429; }
-#lb-star.on { color: #f0b429; }
-#lb-fname { font-family: monospace; font-size: .72rem; color: #666; }
-#lb-cat { font-size: .63rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #555; background: rgba(255,255,255,.08); padding: 1px 7px; border-radius: 99px; }
-#lb-desc { font-size: .83rem; line-height: 1.5; color: #aaa; }
-#lb-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.lb-tag { font-size: .67rem; background: rgba(255,255,255,.08); color: #888; padding: 2px 7px; border-radius: 3px; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--page);
+  color: var(--text); -webkit-font-smoothing: antialiased;
+}
+.mono, .key, .counts, figcaption, .crumb, .summary-toggle, .section-label, .hits,
+.lb-counter, .sheet-row {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
 
+/* The app's header: wordmark with its orange dot, the roll as the crumb */
+.top {
+  display: flex; align-items: center; gap: 14px; padding: 10px 32px; background: var(--top);
+  border-bottom: 1px solid var(--edge); position: sticky; top: 0; z-index: 5;
+}
+.wordmark {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 700;
+  letter-spacing: .08em; font-size: 1.25rem;
+}
+.wordmark::after {
+  content: ""; display: inline-block; width: .5em; height: .5em; margin-left: .35em;
+  border-radius: 50%; background: #f5961d; vertical-align: middle; position: relative;
+  top: -.04em;
+}
+.crumb { color: var(--muted); font-size: 1.05rem; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.grow { flex: 1; }
+.icon-btn { width: 32px; height: 32px; border-radius: 50%; color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center; }
+.icon-btn:hover { color: var(--accent); }
+.icon-btn svg { width: 20px; height: 20px; }
+
+main { padding: 28px 32px 48px; }
+.about { max-width: 62rem; }
+.title-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 1.5rem; font-weight: 600; }
+.counts { font-size: .8rem; color: var(--muted); }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px;
+  margin-top: 16px; max-width: 52rem; }
+.facts-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fact { display: grid; grid-template-columns: 6rem minmax(0, 1fr); font-size: .88rem;
+  line-height: 1.45; }
+.key { font-size: .75rem; letter-spacing: .04em; color: var(--muted); padding-top: 1px; }
+.notes { max-width: 46rem; line-height: 1.55; font-size: .92rem; margin-top: 16px;
+  white-space: pre-line; }
+.summary-block { margin-top: 14px; max-width: 46rem; }
+.summary-toggle { font-size: .75rem; letter-spacing: .04em; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 6px; }
+.summary-toggle:hover { color: var(--accent); }
+.chev { display: inline-block; transition: transform .15s ease; font-size: 1rem; line-height: 1; }
+.summary-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.summary { line-height: 1.55; font-size: .88rem; color: var(--muted); margin-top: 4px; }
+
+/* Search, as in the app's library */
+.search-row { display: flex; align-items: center; gap: 14px; margin: 24px 0 18px; }
+#search {
+  flex: 1; font: inherit; font-size: .9rem; padding: 9px 12px; border-radius: 3px;
+  border: 1px solid var(--edge); background: var(--panel); color: var(--text);
+}
+#search:focus { outline: none; border-color: var(--accent); }
+.hits { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+.no-results { color: var(--muted); font-size: .88rem; margin-bottom: 16px; }
+.section-label { font-size: .75rem; letter-spacing: .04em; color: var(--muted);
+  margin-bottom: 8px; }
+#starred-section { margin-bottom: 22px; padding-bottom: 18px;
+  border-bottom: 1px solid var(--edge); }
+
+/* Frames, as on the roll page */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.card { min-width: 0; }
+.frame { position: relative; }
+.frame img {
+  width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; cursor: zoom-in;
+  background: #0a0a0a; border-radius: 2px;
+}
+.frame img:hover { outline: 2px solid var(--accent); outline-offset: 2px; }
+figcaption { font-size: .68rem; color: var(--muted); margin-top: 3px; }
+.star-btn {
+  position: absolute; top: 3px; right: 5px; color: #fff; font-size: 1rem; line-height: 1;
+  text-shadow: 0 0 3px #000; opacity: 0; transition: opacity .15s;
+}
+.card:hover .star-btn { opacity: .85; }
+.card.starred .star-btn { opacity: 1; color: #f5961d; }
+
+/* Lightbox: the app's frame view */
+#lightbox { position: fixed; inset: 0; z-index: 10; background: var(--page); display: none;
+  flex-direction: column; }
+#lightbox.open { display: flex; }
+.lb-top { display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  border-bottom: 1px solid var(--edge); }
+.lb-title { font-weight: 600; font-size: .9rem; display: inline-flex; align-items: center; gap: 8px; }
+.lb-title:hover { color: var(--accent); }
+.lb-counter { font-size: .75rem; color: var(--muted); }
+#lb-star.on { color: #f5961d; }
+.lb-main { flex: 1; min-height: 0; display: flex; gap: 32px; padding: 28px 32px 24px; }
+.lb-stage { flex: 1; min-width: 0; background: var(--stage); border-radius: 2px;
+  display: flex; align-items: center; justify-content: center; position: relative; }
+#lb-img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.lb-side { width: 400px; flex: none; display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto; }
+.lb-desc { border: 1px solid var(--edge); border-radius: 3px; background: var(--panel);
+  padding: 4px 11px 8px; font-size: 14px; line-height: 1.5; }
+.lb-desc .label { font-size: 12px; color: var(--muted); margin: 5px 0 1px; }
+.lb-side .grow { flex: 1; }
+.sheet-row { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 12px;
+  border-top: 1px solid var(--edge); padding: 4px 2px; font-size: .82rem; line-height: 1.5rem; }
+.sheet-row .key { font-size: .72rem; letter-spacing: .06em; line-height: 1.5rem; }
+.sheet-row .empty { color: var(--muted); }
+
+@media (max-width: 800px) {
+  .top, main { padding-left: 16px; padding-right: 16px; }
+  .facts { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .lb-main { flex-direction: column; padding: 12px; gap: 12px; }
+  .lb-side { width: auto; max-height: 40vh; }
+}
 </style>
 </head>
 <body>
-<div class="header">
-<div class="header-top">
-<h1>Motorcycle Trip to Prague</h1>
+<header class="top"><span class="wordmark">contact</span><span class="crumb">Motorcycle Trip to Prague</span><span class="grow"></span><button id="theme" class="icon-btn" aria-label="Switch theme"></button></header>
+<main>
+<section class="about"><div class="title-row"><h1>Motorcycle Trip to Prague</h1><span class="counts">2023-09 · 9 frames</span></div><div class="facts"><div class="facts-col"><div class="fact"><span class="key">film</span><span>Ilford HP5 Plus</span></div><div class="fact"><span class="key">camera</span><span>Canon A-1</span></div><div class="fact"><span class="key">lenses</span><span>Canon FD 50mm 1:1.8, Canon FD 28mm 1:2.8</span></div><div class="fact"><span class="key">lab</span><span>Safelight</span></div></div><div class="facts-col"><div class="fact"><span class="key">location</span><span>Prague, Czech Republic</span></div><div class="fact"><span class="key">people</span><span>Pippa</span></div><div class="fact"><span class="key">landmarks</span><span>Žižkov Television Tower, Prague National Theatre, Vltava</span></div></div></div><p class="notes">Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</p><div class="summary-block"><button class="summary-toggle" id="summary-toggle" aria-expanded="true"><span class="chev">&#8250;</span>summary</button><p class="summary" id="summary">This photographic roll from Prague in September 2023 features a mix of urban landscapes and close-up subjects. Several frames document city architecture, showing the Žižkov Television Tower, historical buildings lining streets, and views along the Vltava River. Other frames include abstract compositions, scenes with people on plazas, and focused portraits of Pippa alongside dark silhouettes.</p></div></section>
+<div class="search-row"><input type="search" id="search" placeholder="Search these frames" autocomplete="off"><span class="hits" id="hits"></span></div>
+<p id="no-results" class="no-results" hidden>No frames match.</p>
+<section id="starred-section" hidden><div class="section-label">favourites</div><div id="starred-grid" class="grid"></div></section>
+<div id="main-grid" class="grid">
+<figure class="card" data-img="testroll_1.JPG" data-src="testroll_1.JPG?v=1695832021-2484621" data-search="testroll_1.jpg the žižkov television tower dominates the frame, rising with a tall, slender antenna against a bright sky. the tower features several concrete platforms and large supporting columns. dark tree branches frame the left side of the high-contrast composition. architecture žižkov television tower prague, czech republic tower structure building sky outdoor backlight" data-description="The Žižkov Television Tower dominates the frame, rising with a tall, slender antenna against a bright sky. The tower features several concrete platforms and large supporting columns. Dark tree branches frame the left side of the high-contrast composition." data-category="architecture" data-people="" data-landmarks="Žižkov Television Tower" data-place="Prague, Czech Republic" data-tags="tower | structure | building | sky | outdoor | backlight"><div class="frame"><img src="testroll_1.JPG?v=1695832021-2484621" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_1.JPG</figcaption></figure><figure class="card" data-img="testroll_2.JPG" data-src="testroll_2.JPG?v=1695831895-2137598" data-search="testroll_2.jpg a cobbled pedestrian street runs between tall, historical buildings that line both sides of the thoroughfare. a large church tower dominates the background skyline under a bright sky. several people are visible walking and standing on the uneven stone ground. street prague, czech republic cobblestone building people urban daylight group" data-description="A cobbled pedestrian street runs between tall, historical buildings that line both sides of the thoroughfare. A large church tower dominates the background skyline under a bright sky. Several people are visible walking and standing on the uneven stone ground." data-category="street" data-people="" data-landmarks="" data-place="Prague, Czech Republic" data-tags="cobblestone | building | people | urban | daylight | group"><div class="frame"><img src="testroll_2.JPG?v=1695831895-2137598" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_2.JPG</figcaption></figure><figure class="card" data-img="testroll_3.JPG" data-src="testroll_3.JPG?v=1695825654-1626329" data-search="testroll_3.jpg a dark, abstract composition dominated by concentric circles and bright linear refractions. several sharp, bright streaks run vertically through the center of the frame against a deep black background. curved circular patterns are visible across the entire image field. abstract prague, czech republic circles pattern lights texture darkness reflection" data-description="A dark, abstract composition dominated by concentric circles and bright linear refractions. Several sharp, bright streaks run vertically through the center of the frame against a deep black background. Curved circular patterns are visible across the entire image field." data-category="abstract" data-people="" data-landmarks="" data-place="Prague, Czech Republic" data-tags="circles | pattern | lights | texture | darkness | reflection"><div class="frame"><img src="testroll_3.JPG?v=1695825654-1626329" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_3.JPG</figcaption></figure><figure class="card" data-img="testroll_4.JPG" data-src="testroll_4.JPG?v=1695825653-2306297" data-search="testroll_4.jpg the prague national theatre and the nová scéna stand on either side of a large plaza in prague. a person rides a bicycle across the paved ground while another person walks near the modern, gridded building. the older, ornate stone facade of the prague national theatre provides a strong architectural contrast. street prague national theatre nová scéna prague, czech republic plaza building urban modern bicycle daylight structure" data-description="The Prague National Theatre and the Nová Scéna stand on either side of a large plaza in Prague. A person rides a bicycle across the paved ground while another person walks near the modern, gridded building. The older, ornate stone facade of the Prague National Theatre provides a strong architectural contrast." data-category="street" data-people="" data-landmarks="Prague National Theatre | Nová scéna" data-place="Prague, Czech Republic" data-tags="plaza | building | urban | modern | bicycle | daylight | structure"><div class="frame"><img src="testroll_4.JPG?v=1695825653-2306297" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_4.JPG</figcaption></figure><figure class="card" data-img="testroll_5.JPG" data-src="testroll_5.JPG?v=1695825647-2689050" data-search="testroll_5.jpg a view of the vltava river, seen from a bridge, with a waterfall structure in the foreground. large bridges span the wide waterway, while a long line of multi-story buildings forms the distant skyline. industrial machinery and some small structures are visible near the weir. landscape vltava prague, czech republic river bridge waterfall urban structure building high contrast" data-description="A view of the Vltava River, seen from a bridge, with a waterfall structure in the foreground. Large bridges span the wide waterway, while a long line of multi-story buildings forms the distant skyline. Industrial machinery and some small structures are visible near the weir." data-category="landscape" data-people="" data-landmarks="Vltava" data-place="Prague, Czech Republic" data-tags="river | bridge | waterfall | urban | structure | building | high contrast"><div class="frame"><img src="testroll_5.JPG?v=1695825647-2689050" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_5.JPG</figcaption></figure><figure class="card" data-img="testroll_6.JPG" data-src="testroll_6.JPG?v=1695825646-2328699" data-search="testroll_6.jpg several damaged cars are parked on an overgrown patch of ground beside a paved road that runs under an overpass. the foreground features rough stone containers surrounded by tall grass and weeds. in the background, trees line both sides of the roadway beneath the bridge structure. other prague, czech republic cars road overpass junk trees grass abandoned" data-description="Several damaged cars are parked on an overgrown patch of ground beside a paved road that runs under an overpass. The foreground features rough stone containers surrounded by tall grass and weeds. In the background, trees line both sides of the roadway beneath the bridge structure." data-category="other" data-people="" data-landmarks="" data-place="Prague, Czech Republic" data-tags="cars | road | overpass | junk | trees | grass | abandoned"><div class="frame"><img src="testroll_6.JPG?v=1695825646-2328699" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_6.JPG</figcaption></figure><figure class="card" data-img="testroll_7.JPG" data-src="testroll_7.JPG?v=1695825646-2786908" data-search="testroll_7.jpg a dark waterway runs between retaining walls made of rough-hewn stone. a large tree with drooping foliage overhangs a small spit of land in the water. stairs lead down from an elevated area alongside the canal. landscape prague, czech republic waterway stone tree canal retaining wall outdoor reflection" data-description="A dark waterway runs between retaining walls made of rough-hewn stone. A large tree with drooping foliage overhangs a small spit of land in the water. Stairs lead down from an elevated area alongside the canal." data-category="landscape" data-people="" data-landmarks="" data-place="Prague, Czech Republic" data-tags="waterway | stone | tree | canal | retaining wall | outdoor | reflection"><div class="frame"><img src="testroll_7.JPG?v=1695825646-2786908" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_7.JPG</figcaption></figure><figure class="card" data-img="testroll_8.JPG" data-src="testroll_8.JPG?v=1695825644-2130733" data-search="testroll_8.jpg pippa, a striped cat, is centered and faces the viewer. the cat is positioned in front of a dark background element, with bright white surfaces visible in the right half of the image. pippa's body extends upward and slightly out of view. nature pippa prague, czech republic cat animal mammal stripes outdoor high contrast" data-description="Pippa, a striped cat, is centered and faces the viewer. The cat is positioned in front of a dark background element, with bright white surfaces visible in the right half of the image. Pippa's body extends upward and slightly out of view." data-category="nature" data-people="Pippa" data-landmarks="" data-place="Prague, Czech Republic" data-tags="cat | animal | mammal | stripes | outdoor | high contrast"><div class="frame"><img src="testroll_8.JPG?v=1695825644-2130733" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_8.JPG</figcaption></figure><figure class="card" data-img="testroll_9.JPG" data-src="testroll_9.JPG?v=1695825643-876894" data-search="testroll_9.jpg a dark silhouette of a figure occupies the left side of the frame. the form appears to be wearing dark clothing and is captured in close proximity to what looks like an interior reflection. a large expanse of bright white space dominates the right half of the image. abstract prague, czech republic silhouette figure dark reflection interior contrast partial view" data-description="A dark silhouette of a figure occupies the left side of the frame. The form appears to be wearing dark clothing and is captured in close proximity to what looks like an interior reflection. A large expanse of bright white space dominates the right half of the image." data-category="abstract" data-people="" data-landmarks="" data-place="Prague, Czech Republic" data-tags="silhouette | figure | dark | reflection | interior | contrast | partial view"><div class="frame"><img src="testroll_9.JPG?v=1695825643-876894" alt="" loading="lazy"><button class="star-btn" aria-label="Favourite">&#9734;</button></div><figcaption>testroll_9.JPG</figcaption></figure>
 </div>
-<div class="fm-strip"><div class="fm-row"><span class="fm-key">DATE</span><span class="fm-val">2023-09</span></div><div class="fm-row"><span class="fm-key">FILM</span><span class="fm-val">Ilford HP5 Plus</span></div><div class="fm-row"><span class="fm-key">CAM</span><span class="fm-val">Canon A-1</span></div><div class="fm-row"><span class="fm-key">LENS</span><span class="fm-val">Canon FD 50mm 1:1.8 <span class="fm-sep">·</span> Canon FD 28mm 1:2.8</span></div><div class="fm-row"><span class="fm-key">LOC</span><span class="fm-val">Prague, Czech Republic</span></div><div class="fm-row"><span class="fm-key">SUBJ</span><span class="fm-val">Pippa</span></div><div class="fm-row"><span class="fm-key">SITES</span><span class="fm-val">Žižkov Television Tower <span class="fm-sep">·</span> Prague National Theatre <span class="fm-sep">·</span> Vltava</span></div><div class="fm-row"><span class="fm-key">LAB</span><span class="fm-val">Safelight</span></div><div class="fm-row"><span class="fm-key">NOTES</span><span class="fm-val">Trips from my motorcycle trip to Prague, taking photos of brutalist architecture.</span></div><div class="fm-row fm-summ-row"><span class="fm-key fm-summ-key">+</span><span class="fm-summ-val" style="display:none"><span class="fm-summ-label">AI summary</span>  This photographic roll from Prague in September 2023 features a mix of urban landscapes and close-up subjects. Several frames document city architecture, showing the Žižkov Television Tower, historical buildings lining streets, and views along the Vltava River. Other frames include abstract compositions, scenes with people on plazas, and focused portraits of Pippa alongside dark silhouettes.</span></div></div>
-<input type="search" id="search" placeholder="Search frames…" autocomplete="off">
+</main>
+<div id="lightbox" role="dialog" aria-modal="true">
+<div class="lb-top">
+<button class="lb-title" id="lb-close-title"><span aria-hidden="true">&#8592;</span><span id="lb-roll"></span></button>
+<span class="lb-counter" id="lb-counter"></span><span class="grow"></span>
+<button class="icon-btn" id="lb-star" aria-label="Favourite (S)">&#9734;</button>
+<button class="icon-btn" id="lb-close" aria-label="Close (Esc)">&#215;</button>
 </div>
-<div id="no-results" class="no-results">No frames match.</div>
-<div id="starred-section" class="starred-section" style="display:none"><div class="starred-label">Starred</div><div id="starred-grid" class="grid"></div><hr class="section-rule"></div><div id="main-grid" class="grid">
-<div class="card" data-search="testroll_1.jpg the žižkov television tower dominates the frame, rising with a tall, slender antenna against a bright sky. the tower features several concrete platforms and large supporting columns. dark tree branches frame the left side of the high-contrast composition. architecture žižkov television tower | tower | structure | building | sky | outdoor | backlight" data-img="testroll_1.JPG" data-category="architecture" data-description="The Žižkov Television Tower dominates the frame, rising with a tall, slender antenna against a bright sky. The tower features several concrete platforms and large supporting columns. Dark tree branches frame the left side of the high-contrast composition." data-tags="Žižkov Television Tower | tower | structure | building | sky | outdoor | backlight"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_1.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_1.JPG</div></div></div><div class="card" data-search="testroll_2.jpg a cobbled pedestrian street runs between tall, historical buildings that line both sides of the thoroughfare. a large church tower dominates the background skyline under a bright sky. several people are visible walking and standing on the uneven stone ground. street cobblestone | building | people | urban | daylight | group" data-img="testroll_2.JPG" data-category="street" data-description="A cobbled pedestrian street runs between tall, historical buildings that line both sides of the thoroughfare. A large church tower dominates the background skyline under a bright sky. Several people are visible walking and standing on the uneven stone ground." data-tags="cobblestone | building | people | urban | daylight | group"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_2.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_2.JPG</div></div></div><div class="card" data-search="testroll_3.jpg a dark, abstract composition dominated by concentric circles and bright linear refractions. several sharp, bright streaks run vertically through the center of the frame against a deep black background. curved circular patterns are visible across the entire image field. abstract circles | pattern | lights | texture | darkness | reflection" data-img="testroll_3.JPG" data-category="abstract" data-description="A dark, abstract composition dominated by concentric circles and bright linear refractions. Several sharp, bright streaks run vertically through the center of the frame against a deep black background. Curved circular patterns are visible across the entire image field." data-tags="circles | pattern | lights | texture | darkness | reflection"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_3.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_3.JPG</div></div></div><div class="card" data-search="testroll_4.jpg the prague national theatre and the nová scéna stand on either side of a large plaza in prague. a person rides a bicycle across the paved ground while another person walks near the modern, gridded building. the older, ornate stone facade of the prague national theatre provides a strong architectural contrast. street prague national theatre | nová scéna | plaza | building | urban | modern | bicycle | daylight | structure" data-img="testroll_4.JPG" data-category="street" data-description="The Prague National Theatre and the Nová Scéna stand on either side of a large plaza in Prague. A person rides a bicycle across the paved ground while another person walks near the modern, gridded building. The older, ornate stone facade of the Prague National Theatre provides a strong architectural contrast." data-tags="Prague National Theatre | Nová scéna | plaza | building | urban | modern | bicycle | daylight | structure"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_4.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_4.JPG</div></div></div><div class="card" data-search="testroll_5.jpg a view of the vltava river, seen from a bridge, with a waterfall structure in the foreground. large bridges span the wide waterway, while a long line of multi-story buildings forms the distant skyline. industrial machinery and some small structures are visible near the weir. landscape vltava | river | bridge | waterfall | urban | structure | building | high contrast" data-img="testroll_5.JPG" data-category="landscape" data-description="A view of the Vltava River, seen from a bridge, with a waterfall structure in the foreground. Large bridges span the wide waterway, while a long line of multi-story buildings forms the distant skyline. Industrial machinery and some small structures are visible near the weir." data-tags="Vltava | river | bridge | waterfall | urban | structure | building | high contrast"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_5.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_5.JPG</div></div></div><div class="card" data-search="testroll_6.jpg several damaged cars are parked on an overgrown patch of ground beside a paved road that runs under an overpass. the foreground features rough stone containers surrounded by tall grass and weeds. in the background, trees line both sides of the roadway beneath the bridge structure. other cars | road | overpass | junk | trees | grass | abandoned" data-img="testroll_6.JPG" data-category="other" data-description="Several damaged cars are parked on an overgrown patch of ground beside a paved road that runs under an overpass. The foreground features rough stone containers surrounded by tall grass and weeds. In the background, trees line both sides of the roadway beneath the bridge structure." data-tags="cars | road | overpass | junk | trees | grass | abandoned"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_6.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_6.JPG</div></div></div><div class="card" data-search="testroll_7.jpg a dark waterway runs between retaining walls made of rough-hewn stone. a large tree with drooping foliage overhangs a small spit of land in the water. stairs lead down from an elevated area alongside the canal. landscape waterway | stone | tree | canal | retaining wall | outdoor | reflection" data-img="testroll_7.JPG" data-category="landscape" data-description="A dark waterway runs between retaining walls made of rough-hewn stone. A large tree with drooping foliage overhangs a small spit of land in the water. Stairs lead down from an elevated area alongside the canal." data-tags="waterway | stone | tree | canal | retaining wall | outdoor | reflection"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_7.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_7.JPG</div></div></div><div class="card" data-search="testroll_8.jpg pippa, a striped cat, is centered and faces the viewer. the cat is positioned in front of a dark background element, with bright white surfaces visible in the right half of the image. pippa's body extends upward and slightly out of view. nature pippa | cat | animal | mammal | stripes | outdoor | high contrast" data-img="testroll_8.JPG" data-category="nature" data-description="Pippa, a striped cat, is centered and faces the viewer. The cat is positioned in front of a dark background element, with bright white surfaces visible in the right half of the image. Pippa's body extends upward and slightly out of view." data-tags="Pippa | cat | animal | mammal | stripes | outdoor | high contrast"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_8.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_8.JPG</div></div></div><div class="card" data-search="testroll_9.jpg a dark silhouette of a figure occupies the left side of the frame. the form appears to be wearing dark clothing and is captured in close proximity to what looks like an interior reflection. a large expanse of bright white space dominates the right half of the image. abstract silhouette | figure | dark | reflection | interior | contrast | partial view" data-img="testroll_9.JPG" data-category="abstract" data-description="A dark silhouette of a figure occupies the left side of the frame. The form appears to be wearing dark clothing and is captured in close proximity to what looks like an interior reflection. A large expanse of bright white space dominates the right half of the image." data-tags="silhouette | figure | dark | reflection | interior | contrast | partial view"><button class="star-btn" aria-label="Star">&#9734;</button><img src="testroll_9.JPG" alt="" loading="lazy"><div class="card-body"><div class="fname">testroll_9.JPG</div></div></div>
+<div class="lb-main">
+<div class="lb-stage"><img id="lb-img" alt=""></div>
+<div class="lb-side">
+<div class="lb-desc"><div class="label">Description</div><div id="lb-desc"></div></div>
+<div class="grow"></div>
+<div id="lb-sheet"></div>
 </div>
-<div id="lightbox"><div id="lb-bg"></div><button id="lb-close">&#215;</button><div id="lb-main"><button id="lb-prev">&#8249;</button><img id="lb-img" alt=""><button id="lb-next">&#8250;</button></div><div id="lb-info"><div class="lb-top"><button id="lb-star">&#9734;</button><span id="lb-fname"></span><span id="lb-cat"></span></div><p id="lb-desc"></p><div id="lb-tags"></div></div></div>
+</div>
+</div>
 <script>
-(function(){
-  // ── Search ──────────────────────────────────────────────────────────────────
-  var searchEl = document.getElementById('search');
-  searchEl.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { searchEl.value = ''; searchEl.dispatchEvent(new Event('input')); searchEl.blur(); }
+(function () {
+  var root = document.documentElement;
+  var SUN = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM2 13h2a1 1 0 0 0 0-2H2a1 1 0 0 0 0 2zm18 0h2a1 1 0 0 0 0-2h-2a1 1 0 0 0 0 2zM11 2v2a1 1 0 0 0 2 0V2a1 1 0 0 0-2 0zm0 18v2a1 1 0 0 0 2 0v-2a1 1 0 0 0-2 0zM5.99 4.58a1 1 0 0 0-1.41 1.41l1.06 1.06a1 1 0 0 0 1.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 0 0-1.41 1.41l1.06 1.06a1 1 0 0 0 1.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 0 0-1.41-1.41l-1.06 1.06a1 1 0 0 0 1.41 1.41l1.06-1.06zM7.05 18.36a1 1 0 0 0-1.41-1.41l-1.06 1.06a1 1 0 0 0 1.41 1.41l1.06-1.06z"/></svg>';
+  var MOON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>';
+
+  // ── Theme: dark by default, remembered by the browser ─────────────────────
+  var themeBtn = document.getElementById('theme');
+  function showTheme() {
+    var dark = root.dataset.theme !== 'light';
+    themeBtn.innerHTML = dark ? SUN : MOON;  // the button offers the other theme
+    themeBtn.title = dark ? 'Light theme' : 'Dark theme';
+  }
+  themeBtn.addEventListener('click', function () {
+    root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+    try { localStorage.setItem('contact-theme', root.dataset.theme); } catch (e) {}
+    showTheme();
   });
-  var cards = Array.from(document.querySelectorAll('.card'));
+  showTheme();
+
+  // ── Summary: folded or not, remembered ───────────────────────────────────
+  var summaryToggle = document.getElementById('summary-toggle');
+  if (summaryToggle) {
+    var summary = document.getElementById('summary');
+    var setSummary = function (open) {
+      summary.hidden = !open;
+      summaryToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    setSummary(localStorage.getItem('contact-summary') !== 'closed');
+    summaryToggle.addEventListener('click', function () {
+      var open = summary.hidden;
+      setSummary(open);
+      try { localStorage.setItem('contact-summary', open ? 'open' : 'closed'); } catch (e) {}
+    });
+  }
+
+  // ── Search: every word must match; case and accents don't matter ─────────
+  var fold = function (s) {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  };
+  var searchEl = document.getElementById('search');
+  var hitsEl = document.getElementById('hits');
+  var noRes = document.getElementById('no-results');
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+  cards.forEach(function (c) { c._search = fold(c.dataset.search); });
+  function search() {
+    var words = fold(searchEl.value).split(/\s+/).filter(Boolean);
+    var visible = 0;
+    cards.forEach(function (c) {
+      var show = words.every(function (w) { return c._search.indexOf(w) !== -1; });
+      c.hidden = !show;
+      if (show) visible++;
+    });
+    hitsEl.textContent = words.length ? visible + ' of ' + cards.length : cards.length + ' frames';
+    noRes.hidden = !(words.length && visible === 0);
+    updateSections();
+  }
+  searchEl.addEventListener('input', search);
+
+  // ── Favourites, pinned on top ──────────────────────────────────────────────
+  // Baked into this page from the sidecars (data-starred). Opened through the app, a
+  // click is saved back to the sidecar; opened as a plain file there is nowhere to
+  // save to, so this browser remembers it on top of what the page was built with.
+  var LEGACY_KEY = 'film-stars:' + location.pathname;
+  var LOCAL_KEY = 'contact-stars:' + location.pathname;
+  var legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '[]');
+  var local = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
   var starredGrid = document.getElementById('starred-grid');
   var mainGrid = document.getElementById('main-grid');
   var starredSection = document.getElementById('starred-section');
-  var noRes = document.getElementById('no-results');
-  searchEl.addEventListener('input', function(){
-    var q = searchEl.value.toLowerCase();
-    var visible = 0;
-    cards.forEach(function(c){
-      var show = !q || c.dataset.search.indexOf(q) !== -1;
-      c.style.display = show ? '' : 'none';
-      if (show) visible++;
-    });
-    noRes.style.display = (q && visible === 0) ? 'block' : 'none';
-  });
-
-  // ── Stars / pinning ─────────────────────────────────────────────────────────
-  // Favourites live in the sidecars and are baked into this page (data-starred).
-  // Opened through the contact app, a click is saved back to the sidecar. Opened as a
-  // plain file there is nowhere to save to, so the click is remembered in this browser
-  // only, on top of what the page was built with.
-  var LEGACY_KEY = 'film-stars:' + window.location.pathname;
-  var LOCAL_KEY = 'contact-stars:' + window.location.pathname;
-  var legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '[]');
-  var local = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
-  var starred = [];
-  function readStars() {
-    starred = cards.filter(function(card) {
-      var name = card.dataset.img;
-      if (Object.prototype.hasOwnProperty.call(local, name)) return local[name];
-      return card.dataset.starred === '1' || legacy.indexOf(name) !== -1;
-    }).map(function(card) { return card.dataset.img; });
+  function isStarred(card) {
+    var name = card.dataset.img;
+    if (Object.prototype.hasOwnProperty.call(local, name)) return local[name];
+    return card.dataset.starred === '1' || legacy.indexOf(name) !== -1;
   }
-  readStars();
+  function updateSections() {
+    starredSection.hidden = !Array.prototype.some.call(starredGrid.children,
+      function (c) { return !c.hidden; });
+  }
   function applyStars() {
-    cards.forEach(function(card) {
-      var on = starred.indexOf(card.dataset.img) !== -1;
+    cards.forEach(function (card) {
+      var on = isStarred(card);
       card.classList.toggle('starred', on);
       card.querySelector('.star-btn').innerHTML = on ? '&#9733;' : '&#9734;';
       (on ? starredGrid : mainGrid).appendChild(card);
     });
-    starredSection.style.display = starredGrid.children.length ? '' : 'none';
-    // Sync lightbox star button
-    var lbStarEl = document.getElementById('lb-star');
-    if (lbStarEl && lbCard) {
-      var on = starred.indexOf(lbCard.dataset.img) !== -1;
-      lbStarEl.innerHTML = on ? '&#9733;' : '&#9734;';
-      lbStarEl.classList.toggle('on', on);
-    }
+    updateSections();
+    if (lbCard) showLbStar();
   }
-  applyStars();
-  document.querySelectorAll('.star-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      toggleStar(btn.closest('.card').dataset.img);
-    });
-  });
-  function toggleStar(imgName) {
-    var on = starred.indexOf(imgName) === -1;
-    local[imgName] = on;
+  function toggleStar(card) {
+    var on = !isStarred(card);
+    local[card.dataset.img] = on;
     localStorage.setItem(LOCAL_KEY, JSON.stringify(local));
-    readStars();
     applyStars();
-    if (window.location.protocol === 'file:') return;
+    if (location.protocol === 'file:') return;
     fetch('/api/star', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name: imgName, starred: on})
-    }).then(function(response) {
+      body: JSON.stringify({name: card.dataset.img, starred: on})
+    }).then(function (response) {
       if (!response.ok) return;
-      // saved in the sidecar: the page's own state is the truth again
-      var card = cards.filter(function(c) { return c.dataset.img === imgName; })[0];
-      if (card) card.dataset.starred = on ? '1' : '';
-      delete local[imgName];
+      card.dataset.starred = on ? '1' : '';  // saved in the sidecar
+      delete local[card.dataset.img];
       localStorage.setItem(LOCAL_KEY, JSON.stringify(local));
-    }).catch(function() {});
+    }).catch(function () {});
   }
+  cards.forEach(function (card) {
+    card.querySelector('.star-btn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleStar(card);
+    });
+  });
 
-  // ── Lightbox ─────────────────────────────────────────────────────────────────
+  // ── Lightbox: the app's frame view ────────────────────────────────────────
   var lb = document.getElementById('lightbox');
   var lbImg = document.getElementById('lb-img');
   var lbCard = null;
-  function showLbCard(card) {
+  document.getElementById('lb-roll').textContent = document.querySelector('h1').textContent;
+  function shown() {
+    return Array.prototype.slice.call(document.querySelectorAll('.card'))
+      .filter(function (c) { return !c.hidden; });
+  }
+  function showLbStar() {
+    var star = document.getElementById('lb-star');
+    var on = isStarred(lbCard);
+    star.innerHTML = on ? '&#9733;' : '&#9734;';
+    star.classList.toggle('on', on);
+  }
+  function row(key, values) {
+    var div = document.createElement('div');
+    div.className = 'sheet-row';
+    var k = document.createElement('span');
+    k.className = 'key';
+    k.textContent = key;
+    var v = document.createElement('span');
+    v.textContent = values.length ? values.join(', ') : '\u2014';
+    if (!values.length) v.className = 'empty';
+    div.appendChild(k);
+    div.appendChild(v);
+    return div;
+  }
+  var split = function (s) { return (s || '').split('|').map(function (x) { return x.trim(); }).filter(Boolean); };
+  function showLb(card) {
     lbCard = card;
-    lbImg.src = card.querySelector('img').src;
-    var on = starred.indexOf(card.dataset.img) !== -1;
-    var lbStarEl = document.getElementById('lb-star');
-    lbStarEl.innerHTML = on ? '&#9733;' : '&#9734;';
-    lbStarEl.classList.toggle('on', on);
-    document.getElementById('lb-fname').textContent = card.dataset.img;
-    document.getElementById('lb-cat').textContent = card.dataset.category;
+    lbImg.src = card.dataset.src;
+    var list = shown();
+    document.getElementById('lb-counter').textContent =
+      (list.indexOf(card) + 1) + ' / ' + list.length + ' \u00b7 ' + card.dataset.img;
     document.getElementById('lb-desc').textContent = card.dataset.description;
-    var tagsEl = document.getElementById('lb-tags');
-    tagsEl.innerHTML = '';
-    (card.dataset.tags || '').split('|').forEach(function(t) {
-      t = t.trim();
-      if (!t) return;
-      var s = document.createElement('span');
-      s.className = 'lb-tag';
-      s.textContent = t;
-      tagsEl.appendChild(s);
-    });
+    var sheet = document.getElementById('lb-sheet');
+    sheet.innerHTML = '';
+    sheet.appendChild(row('people', split(card.dataset.people)));
+    sheet.appendChild(row('landmarks', split(card.dataset.landmarks)));
+    sheet.appendChild(row('place', split(card.dataset.place)));
+    sheet.appendChild(row('tags', split(card.dataset.tags)));
+    sheet.appendChild(row('category', split(card.dataset.category)));
+    showLbStar();
   }
-  function openLb(card) {
-    showLbCard(card);
-    lb.classList.add('open');
-    document.body.style.overflow = 'hidden';
+  function openLb(card) { showLb(card); lb.classList.add('open'); document.body.style.overflow = 'hidden'; }
+  function closeLb() { lb.classList.remove('open'); lbImg.removeAttribute('src'); lbCard = null; document.body.style.overflow = ''; }
+  function step(by) {
+    var list = shown();
+    var i = list.indexOf(lbCard);
+    showLb(list[(i + by + list.length) % list.length]);
   }
-  function closeLb() { lb.classList.remove('open'); lbImg.src = ''; document.body.style.overflow = ''; }
-  function navLb(d) {
-    var vc = cards.filter(function(c){ return c.style.display !== 'none'; });
-    var idx = vc.indexOf(lbCard);
-    if (idx === -1) idx = 0;
-    showLbCard(vc[(idx + d + vc.length) % vc.length]);
-  }
-  cards.forEach(function(card) {
-    card.querySelector('img').addEventListener('click', function() { openLb(card); });
+  cards.forEach(function (card) {
+    card.querySelector('img').addEventListener('click', function () { openLb(card); });
   });
-  document.getElementById('lb-bg').addEventListener('click', closeLb);
   document.getElementById('lb-close').addEventListener('click', closeLb);
-  document.getElementById('lb-prev').addEventListener('click', function(){ navLb(-1); });
-  document.getElementById('lb-next').addEventListener('click', function(){ navLb(1); });
-  document.getElementById('lb-star').addEventListener('click', function(){ if (lbCard) toggleStar(lbCard.dataset.img); });
+  document.getElementById('lb-close-title').addEventListener('click', closeLb);
+  document.getElementById('lb-star').addEventListener('click', function () { if (lbCard) toggleStar(lbCard); });
 
-  // ── Global keyboard ─────────────────────────────────────────────────────────
-  document.addEventListener('keydown', function(e) {
+  // ── Keys ───────────────────────────────────────────────────────────────────
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (lb.classList.contains('open')) {
-      if (e.key === 'ArrowLeft' || e.key === 'k') { e.preventDefault(); navLb(-1); }
-      if (e.key === 'ArrowRight' || e.key === 'j') { e.preventDefault(); navLb(1); }
-      if (e.key === 's' && lbCard) toggleStar(lbCard.dataset.img);
-      if (e.key === 'Escape') closeLb();
+      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+      else if (e.key === 's' || e.key === 'S') toggleStar(lbCard);
+      else if (e.key === 'Escape') closeLb();
       return;
     }
-    if (e.key === 'Escape' && document.activeElement === searchEl) { searchEl.blur(); return; }
-    if ((e.key === 'Enter' || e.key === '/') && document.activeElement !== searchEl) { e.preventDefault(); searchEl.focus(); }
+    if (document.activeElement === searchEl) {
+      if (e.key === 'Escape') {
+        if (searchEl.value) { searchEl.value = ''; search(); } else searchEl.blur();
+      }
+      return;
+    }
+    if (e.key === '/' || e.key === 'Enter') { e.preventDefault(); searchEl.focus(); }
   });
 
-  // ── Summary toggle ───────────────────────────────────────────────────────────
-  var summKey = document.querySelector('.fm-summ-key');
-  if (summKey) {
-    summKey.addEventListener('click', function() {
-      var val = this.parentElement.querySelector('.fm-summ-val');
-      var open = val.style.display !== 'none';
-      val.style.display = open ? 'none' : '';
-      this.textContent = open ? '+' : '-';
-    });
-  }
+  applyStars();
+  search();
 })();
 </script>
 </body>

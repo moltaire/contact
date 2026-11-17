@@ -66,8 +66,8 @@ Decisions: all processed rolls live in ONE parent folder (set it in Settings). T
 - [x] Browser back/forward between library, viewer and roll steps (history.pushState + popstate → "contact_nav")
 - [x] Previews kept on disk in ~/.cache/contact/previews and decoded at reduced scale (~100× faster); card previews made in the background after a scan
 - [x] Rotate in review with [ and ] — only the JPEG's EXIF orientation flag changes (processor/orientation.py, tested on copies of real scans)
-- [ ] Rotation of TIFF/PNG (none in the library yet)
-- [ ] Contact sheet: images are cached by the browser, so a rotated frame may show the old way until the page is reloaded
+- [x] Rotation of TIFF (flag, in place or in an appended IFD) and PNG (pixels, exact); tested
+- [x] Contact sheet links images with a version stamp, and a rotation rebuilds the sheet (without rewriting the summary)
 
 ### 10. Roll pages and the two flows (built 2026-11-16)
 - [x] A roll has three pages: Overview (default), Info, Edit (was Review); Tagging and Contact sheet steps folded into the Overview
@@ -77,6 +77,11 @@ Decisions: all processed rolls live in ONE parent folder (set it in Settings). T
 - [x] Edit column no longer scrolls sideways
 - [x] README rewritten around the two workflows, with new screenshots (2026-11-17)
 
+### 12. Themes and the contact sheet (built 2026-11-17)
+- [x] Sun/moon in the header switches dark and light, saved as `theme` in settings.json; `--light` for one run
+- [x] Light theme brought to parity: every colour named once in theme.py with a dark and a light value; the app no longer uses Quasar's grey colour props (they sit in a CSS layer nothing overrides) but `color=quiet` / `quiet-strong`
+- [~] Static library page linking all contact sheets: dropped for now (user unsure it is needed)
+
 ### 11. One frame view (built 2026-11-16)
 - [x] Viewer and Edit page merged into one overlay (`contact_gui/frames.py`): View by default, E toggles Edit (remembered), filmstrip only in Edit
 - [x] Opens over the library (roll or search results, editing across rolls) and over a roll's overview; Esc and browser back return there
@@ -84,7 +89,7 @@ Decisions: all processed rolls live in ONE parent folder (set it in Settings). T
 - [x] Favourite button without the redundant checkmark
 - [x] Look: frame view keeps the old review's spacing (padded image stage, description box in both modes, sheet people/landmarks/place/tags/category, no hint text); overview with facts in two columns and one row of actions; "Re-tag frames…" switches the grid to picking; Info as a two-column form
 - [x] Roll info is a form in place on the roll page (Edit info); the Info tab is gone, a new roll opens with the form; Esc on the roll page steps out to the library
-- [ ] Later: the HTML contact sheet could mirror the roll page (it is basically the contact sheet now)
+- [x] The HTML contact sheet mirrors the roll page, keeps its search, lightbox like the frame view, dark/light
 
 ### Later
 - Tests, cross-roll index and search, contact sheet redesign, coordinates for places, AI-suggested roll label, Ollama install instructions

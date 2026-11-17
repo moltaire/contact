@@ -38,7 +38,7 @@ This installs `contact-ui` (the app) and `contact` (the command line).
 contact-ui
 ```
 
-It runs locally and opens in your browser. The browser's back and forward buttons work everywhere, `?` lists every shortcut, and the gear opens Settings.
+It runs locally and opens in your browser. The browser's back and forward buttons work everywhere, `?` lists every shortcut, the sun/moon switches between the dark and the light theme, and the gear opens Settings.
 
 ### Adding a new roll
 
@@ -76,7 +76,7 @@ A roll's page shows its facts, your notes, the generated summary (click **summar
 Click any frame to see it large, over the library or the roll. ← → step through the frames you were looking at, across rolls when they come from a search. Esc goes back to where you were.
 
 - `S` marks a favourite. Favourites are shared with the contact sheet.
-- `[` `]` turn a sideways scan. Only the file's orientation flag changes, so the image data stays untouched and the rotation shows in Finder, Lightroom and the contact sheet too.
+- `[` `]` turn a sideways scan. For JPEG and TIFF only the file's orientation flag changes, so the image data stays untouched and the rotation shows in Finder, Lightroom and the contact sheet too. A PNG is turned in its pixels, which is just as exact since PNG is lossless.
 - `R` opens the frame's roll.
 - `E` switches between **View** and **Edit**, and the app remembers which you used last.
 
@@ -92,12 +92,12 @@ When you close the frame view, the contact sheets and summaries of the rolls you
 
 <p>
   <img src="docs/screenshots/contact_5_info.png" width="49%" alt="Editing a roll's info in place">
-  <img src="docs/screenshots/contact_6_sheet.png" width="49%" alt="The HTML contact sheet">
+  <img src="docs/screenshots/contact_7_light.png" width="49%" alt="A roll's page in the light theme">
 </p>
 
 **Settings** (the gear) chooses the vision and text model and tidies the remembered options: places, people, landmarks, lenses, cameras, film stocks and labs. It also quits the app.
 
-Other options: `contact-ui --folder DIR` opens a roll straight away, `--library DIR` shows another folder of rolls for one run, and `--light` uses the light theme.
+Other options: `contact-ui --folder DIR` opens a roll straight away, `--library DIR` shows another folder of rolls for one run, and `--light` starts in the light theme for one run.
 
 ---
 
@@ -129,9 +129,11 @@ Everything sits next to the scans, so the folder is the archive:
 
 - **`roll.yaml`**: the roll's facts and, after tagging, its summary.
 - **One XMP sidecar per frame**: description, tags, category, people, landmarks, place, favourite (as a 5-star rating) and the facts you gave the model, plus the roll's film, camera and lens. Lightroom, darktable, Finder and Spotlight can read them.
-- **`index.html`**: a self-contained contact sheet with the roll's details, a lightbox, search (`/` or Return) and favourites.
+- **`index.html`**: a self-contained contact sheet that looks like the roll's page: its facts, notes and summary, every frame, search (`/` or Return), favourites pinned on top, and a lightbox laid out like the app's frame view (← →, `S`, Esc). It has the same dark and light themes. Share the folder and the sheet goes with it.
 
 Your remembered options are kept in `~/.config/contact/history.json`, and the app's settings in `settings.json` next to it.
+
+<img src="docs/screenshots/contact_6_sheet.png" width="100%" alt="The HTML contact sheet: the roll's facts, notes and summary, a search box and the frames">
 
 ## How tagging works
 

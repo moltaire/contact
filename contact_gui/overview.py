@@ -149,7 +149,7 @@ class OverviewView:
                             .props("flat round dense size=sm color=negative").tooltip("Stop")
                     else:
                         ui.button(icon="close", on_click=self._dismiss) \
-                            .props("flat round dense size=sm color=grey-6").tooltip("Dismiss")
+                            .props("flat round dense size=sm color=quiet").tooltip("Dismiss")
                 self.bar = ui.linear_progress(job.progress, show_value=False)
                 for result in job.failed:
                     ui.label(f"✗ {result.image.name}: {result.error}") \
@@ -165,8 +165,8 @@ class OverviewView:
                     if tagged_picked:
                         ui.button(f"Un-tag {len(tagged_picked)}",
                                   on_click=lambda: self._confirm_untag(tagged_picked)) \
-                            .props("outline color=grey-5")
-                ui.button("Cancel", on_click=self.stop_picking).props("outline color=grey-5")
+                            .props("outline color=quiet-strong")
+                ui.button("Cancel", on_click=self.stop_picking).props("outline color=quiet-strong")
                 ui.label("click frames to pick them").classes("overview-hint")
                 return
 
@@ -176,24 +176,24 @@ class OverviewView:
             if state.tagged:
                 edit = ui.button("Edit frames", on_click=lambda: self.on_edit(None))
                 if untagged and not busy:
-                    edit.props("outline color=grey-5")
+                    edit.props("outline color=quiet-strong")
                 if not busy:
                     ui.button("Re-tag frames…", on_click=self._start_picking) \
-                        .props("outline color=grey-5")
+                        .props("outline color=quiet-strong")
             index = state.folder / "index.html"
             if index.exists():
                 ui.button("Contact sheet", on_click=lambda: webbrowser.open(index.as_uri())) \
-                    .props("outline color=grey-5")
+                    .props("outline color=quiet-strong")
             new_name = build_folder_name(state.roll)
             described = (state.folder / "roll.yaml").exists()  # else the name is just today
             if described and new_name and new_name != state.folder.name and not busy:
                 ui.button(f"Rename to {new_name}", on_click=lambda: self._rename(new_name)) \
-                    .props("outline color=grey-5")
+                    .props("outline color=quiet-strong")
             root = state.library_root
             if root is not None and state.folder.parent.resolve() != root.resolve() and not busy:
                 ui.button("Move into library", on_click=self._confirm_move) \
-                    .props("outline color=grey-5")
-            ui.button("Edit info", on_click=self.open_info).props("outline color=grey-5")
+                    .props("outline color=quiet-strong")
+            ui.button("Edit info", on_click=self.open_info).props("outline color=quiet-strong")
 
     @ui.refreshable_method
     def _grid(self) -> None:
@@ -332,7 +332,7 @@ class OverviewView:
                      f"{'s' if len(targets) != 1 else ''}?").classes("text-lg")
             ui.label("Descriptions, tags, people, landmarks, favourites and any edits for "
                      "these frames are lost. The images themselves are not touched.") \
-                .classes("text-grey-7")
+                .classes("text-quiet")
             with ui.row().classes("w-full justify-end"):
                 ui.button("Cancel", on_click=dialog.close).props("flat")
                 ui.button("Delete metadata", color="negative",
@@ -371,7 +371,7 @@ class OverviewView:
         with ui.dialog() as dialog, ui.card().classes("max-w-xl"):
             ui.label("Move this roll into the library?").classes("text-lg")
             ui.label(f"The folder moves from {display_path(state.folder.parent)} to "
-                     f"{display_path(root)}, with everything in it.").classes("text-grey-7")
+                     f"{display_path(root)}, with everything in it.").classes("text-quiet")
             if target.exists():
                 ui.label(f"There is already a folder called {state.folder.name} in the "
                          "library. Rename this one first.").classes("text-negative")

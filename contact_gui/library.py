@@ -88,12 +88,12 @@ class LibraryView:
                 .props("dense no-caps unelevated toggle-color=transparent toggle-text-color=black") \
                 .classes("mode-toggle").tooltip("V")
             ui.button("Filters", icon="tune", on_click=self._toggle_filters) \
-                .props("flat dense color=grey-6")
+                .props("flat dense color=quiet")
 
         if state.library is None:
             with ui.row().classes("items-center gap-2"):
                 ui.spinner(size="sm")
-                ui.label("Reading the library…").classes("text-sm text-grey-6")
+                ui.label("Reading the library…").classes("text-sm text-quiet")
             if not self._loading:
                 self._loading = True
                 ui.timer(0.1, self._load, once=True)
@@ -104,7 +104,7 @@ class LibraryView:
     # ── Library folder ────────────────────────────────────────────────────────
 
     def _choose_root(self, text: str) -> None:
-        ui.label(text).classes("text-grey-7")
+        ui.label(text).classes("text-quiet")
         with ui.row().classes("w-full items-center no-wrap"):
             ui.button("Choose library folder…", icon="folder_open", on_click=self._browse) \
                 .props("outline")
@@ -210,23 +210,23 @@ class LibraryView:
                     with ui.row().classes("grow gap-1"):
                         for value, _count in values[:_MAX_CHIPS]:
                             on = f'{prefix}:"{value}"' in self.query
-                            ui.chip(value, color="primary" if on else "grey-9",
-                                    text_color="white",
+                            ui.chip(value, color="primary" if on else None,
+                                    text_color="white" if on else None,
                                     on_click=lambda prefix=prefix, value=value:
                                         self._toggle_term(prefix, value)) \
                                 .props("dense square").classes("candidate")
                         if len(values) > _MAX_CHIPS:
                             ui.label(f"+{len(values) - _MAX_CHIPS} more — type to search") \
-                                .classes("text-xs text-grey-6 self-center")
+                                .classes("text-xs text-quiet self-center")
             with ui.row().classes("w-full items-center no-wrap gap-3"):
                 ui.label("show").classes("sheet-key")
                 on = "is:starred" in self.query
-                ui.chip("favourites", icon="star", color="primary" if on else "grey-9",
-                        text_color="white", on_click=self._toggle_favourites) \
+                ui.chip("favourites", icon="star", color="primary" if on else None,
+                        text_color="white" if on else None, on_click=self._toggle_favourites) \
                     .props("dense square").classes("candidate")
             with ui.row().classes("w-full items-center no-wrap gap-3"):
                 ui.label("library").classes("sheet-key")
-                ui.label(display_path(state.library_root)).classes("text-xs text-grey-6 mono")
+                ui.label(display_path(state.library_root)).classes("text-xs text-quiet mono")
                 ui.button("Change", on_click=self._change_root).props("flat dense size=sm")
                 ui.button("Read again", on_click=self.reload).props("flat dense size=sm")
 
@@ -237,7 +237,7 @@ class LibraryView:
         rolls = state.library or []
         if not rolls:
             ui.label("No rolls found in this folder. A roll is a subfolder with scans and a "
-                     "roll.yaml or tagged frames.").classes("text-grey-7")
+                     "roll.yaml or tagged frames.").classes("text-quiet")
             return
         searching = bool(self.query.strip())
         focused = next((r for r in rolls if r.folder == self.focus), None)
@@ -256,7 +256,7 @@ class LibraryView:
             "Nothing found" if searching and not hits else
             f"{n_frames} frame{'s' if n_frames != 1 else ''} in "
             f"{n_rolls} roll{'s' if n_rolls != 1 else ''}"
-        ).classes("text-xs text-grey-6 mono")
+        ).classes("text-xs text-quiet mono")
 
         if self.view == "Rolls":
             self._roll_cards(shown, by_roll if searching else {})
@@ -273,7 +273,7 @@ class LibraryView:
             hits = everything
         with ui.row().classes("w-full items-center no-wrap gap-3 library-focus"):
             ui.button("All rolls", icon="arrow_back", on_click=lambda: self.on_back()) \
-                .props("flat dense no-caps color=grey-5")
+                .props("flat dense no-caps color=quiet-strong")
             with ui.column().classes("gap-0 grow min-w-0"):
                 ui.label(roll.label).classes("library-card-title truncate w-full")
                 ui.label(" · ".join(v for v in [
@@ -285,7 +285,7 @@ class LibraryView:
                       on_click=lambda: self.on_open(roll.folder)) \
                 .props("unelevated no-caps").tooltip("Tag, edit, contact sheet, rename")
         if not hits:
-            ui.label("No frames of this roll match the search.").classes("text-grey-7")
+            ui.label("No frames of this roll match the search.").classes("text-quiet")
             return
         with ui.element("div").classes("library-frames mt-2"):
             for n, hit in enumerate(hits):
@@ -364,7 +364,7 @@ class LibraryView:
                 # the roll's own page; .stop keeps the card's own click (browse its
                 # frames here) from firing as well
                 ui.button(icon="arrow_forward") \
-                    .props("flat dense round size=sm color=grey-6").classes("library-card-info") \
+                    .props("flat dense round size=sm color=quiet").classes("library-card-info") \
                     .on("click.stop", lambda: self.on_open(roll.folder)) \
                     .tooltip("Open roll")
 
@@ -379,7 +379,7 @@ class LibraryView:
                 continue
             if budget <= 0:
                 ui.label(f"Showing the first {_MAX_FRAMES} frames — search or filter to narrow "
-                         "it down.").classes("text-xs text-grey-6 mt-3")
+                         "it down.").classes("text-xs text-quiet mt-3")
                 break
             group, budget = group[:budget], budget - len(group)
             with ui.row().classes("w-full items-baseline gap-3 library-roll"):
@@ -387,9 +387,9 @@ class LibraryView:
                     .on("click", lambda roll=roll: self.on_open(roll.folder))
                 ui.label(" · ".join(v for v in [roll.date, roll.info.get("film", ""),
                                                  _short(roll.locations)] if v)) \
-                    .classes("mono text-xs text-grey-6")
+                    .classes("mono text-xs text-quiet")
                 ui.space()
-                ui.label(f"{len(group)} of {len(roll.frames)}").classes("mono text-xs text-grey-6")
+                ui.label(f"{len(group)} of {len(roll.frames)}").classes("mono text-xs text-quiet")
             with ui.element("div").classes("library-frames"):
                 for hit in group:
                     # no caption or tooltip: the frame speaks for itself

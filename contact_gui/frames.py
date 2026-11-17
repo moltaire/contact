@@ -85,7 +85,8 @@ class FrameOverlay:
         self.origin_label = ""
         self.selection: set[int] = set()  # frames selected besides the current one
         self.mode = "fact"                # the entry line's mode, remembered
-        self.touched: set[Path] = set()   # rolls edited while open
+        self.touched: set[Path] = set()   # rolls whose contact sheet needs rebuilding
+        self.reworded: set[Path] = set()  # rolls whose frames' text changed: new summary
         self._pushed = False
         self._loading = False
         self._refining = False
@@ -170,20 +171,20 @@ class FrameOverlay:
         with ui.row().classes("frame-top w-full items-center no-wrap gap-3"):
             self.origin_button = ui.button("Back", icon="arrow_back",
                                            on_click=lambda: self.close()) \
-                .props("flat dense no-caps color=grey-5").classes("frame-origin") \
+                .props("flat dense no-caps color=quiet-strong").classes("frame-origin") \
                 .tooltip("Back (Esc)")
             self.roll_link = ui.label().classes("frame-roll cursor-pointer truncate min-w-0") \
                 .on("click", self._open_roll).tooltip("Open the roll (R)")
-            self.counter = ui.label().classes("mono text-xs text-grey-6 whitespace-nowrap")
+            self.counter = ui.label().classes("mono text-xs text-quiet whitespace-nowrap")
             self.selection_label = ui.label().classes(
                 "mono text-xs text-primary whitespace-nowrap cursor-pointer"
             ).on("click", self._clear_selection).tooltip("Click or press Esc to clear")
             ui.space()
-            self.status = ui.label().classes("mono text-xs text-grey-6 truncate min-w-0")
+            self.status = ui.label().classes("mono text-xs text-quiet truncate min-w-0")
             ui.button(icon="rotate_left", on_click=lambda: self._rotate(False)) \
-                .props("flat round dense size=sm color=grey-6").tooltip("Rotate left ([)")
+                .props("flat round dense size=sm color=quiet").tooltip("Rotate left ([)")
             ui.button(icon="rotate_right", on_click=lambda: self._rotate(True)) \
-                .props("flat round dense size=sm color=grey-6").tooltip("Rotate right (])")
+                .props("flat round dense size=sm color=quiet").tooltip("Rotate right (])")
             self.star_button = ui.button(icon="star_border", on_click=self._toggle_star) \
                 .props("flat round dense size=sm").tooltip("Favourite (S)")
             self.mode_toggle = ui.toggle({False: "View", True: "Edit"}, value=self.editing,
@@ -191,9 +192,9 @@ class FrameOverlay:
                 .props("dense no-caps unelevated toggle-color=transparent toggle-text-color=black") \
                 .classes("mode-toggle mx-2").tooltip("E")
             ui.button(icon="help_outline", on_click=self.on_help) \
-                .props("flat round dense size=sm color=grey-6").tooltip("Keyboard shortcuts (?)")
+                .props("flat round dense size=sm color=quiet").tooltip("Keyboard shortcuts (?)")
             ui.button(icon="close", on_click=lambda: self.close()) \
-                .props("flat round dense size=sm color=grey-5").tooltip("Back (Esc)")
+                .props("flat round dense size=sm color=quiet-strong").tooltip("Back (Esc)")
 
     @ui.refreshable_method
     def _side(self) -> None:
@@ -202,9 +203,9 @@ class FrameOverlay:
         hit = self.items[self.index]
         meta = hit.frame.meta
         if not meta:
-            ui.label("Not tagged yet.").classes("text-grey-6")
+            ui.label("Not tagged yet.").classes("text-quiet")
             ui.label("Tag it on the roll's overview (R), then come back to edit.") \
-                .classes("text-xs text-grey-6")
+                .classes("text-xs text-quiet")
             return
         if self.editing:
             self._edit_text(hit)
@@ -242,7 +243,7 @@ class FrameOverlay:
         with self.note.add_slot("append"):
             notes = meta.get("notes", [])
             if notes:
-                with ui.icon("format_list_bulleted", size="xs").classes("text-grey-6"):
+                with ui.icon("format_list_bulleted", size="xs").classes("text-quiet"):
                     ui.tooltip("Facts given:\n" + "\n".join(f"• {n}" for n in notes)) \
                         .classes("text-sm max-w-xs whitespace-pre-line")
             if self._undo and not self._refining:
@@ -320,10 +321,11 @@ class FrameOverlay:
             names = [n for n in names if n in keep or n in present]
         if not names:
             ui.label("Nothing on this roll yet — type a name and press Return") \
-                .classes("text-xs text-grey-6")
+                .classes("text-xs text-quiet")
         for n, name in enumerate(names, 1):
             on = name in present
-            chip = ui.chip(name, color="primary" if on else "grey-9", text_color="white",
+            chip = ui.chip(name, color="primary" if on else None,
+                           text_color="white" if on else None,
                            on_click=lambda name=name, on=on: on_toggle(name, not on)) \
                 .props("dense square").classes("shrink-0 candidate")
             if numbered and n <= 9:
@@ -382,7 +384,7 @@ class FrameOverlay:
         self.selection_label.set_text(f"+{n} selected" if n else "")
         on = bool(self.items[self.index].frame.meta.get("starred"))
         self.star_button.props(f'icon={"star" if on else "star_border"} '
-                               f'color={"primary" if on else "grey-6"}')
+                               f'color={"primary" if on else "quiet"}')
 
     def _set_editing(self, on: bool) -> None:
         if on == self.editing:
@@ -635,6 +637,7 @@ class FrameOverlay:
         hit.frame.meta.update(meta)  # the library and the overview share this object
         if affects_summary:
             self.touched.add(hit.roll.folder)
+            self.reworded.add(hit.roll.folder)
             if hit.roll.folder == state.folder:
                 state.edited_since_summary = True
         if i == self.index:
@@ -702,14 +705,16 @@ class FrameOverlay:
         self._show_selection()
 
     def _rotate(self, clockwise: bool) -> None:
-        """Turn the current frame (and the selection) a quarter turn. Only the scan's EXIF
-        orientation flag changes, so it shows turned in Finder and Lightroom too."""
+        """Turn the current frame (and the selection) a quarter turn. JPEGs and TIFFs
+        change only their orientation flag, so they show turned in Finder and Lightroom
+        too; PNGs are turned in their pixels (exactly, PNG being lossless)."""
         turned, problems = 0, []
         for i in sorted({self.index, *self.selection}):
             image = self.items[i].frame.image
             try:
                 rotate(image, clockwise)
                 turned += 1
+                self.touched.add(self.items[i].roll.folder)  # its contact sheet links anew
             except (OrientationError, OSError) as e:
                 problems.append(f"{image.name}: {e}")
                 continue
@@ -861,11 +866,13 @@ class FrameOverlay:
         background."""
         touched = [h.roll for h in self.items if h.roll.folder in self.touched]
         rolls = list({id(r): r for r in touched}.values())
+        reworded = [r for r in rolls if r.folder in self.reworded]
         self.touched.clear()
+        self.reworded.clear()
         for roll in rolls:
             rebuild_contact_sheet(roll.folder, roll.info)
-        if rolls:
-            background_tasks.create(_refresh_summaries(rolls), name="summaries")
+        if reworded:  # a rotation alone changes no words
+            background_tasks.create(_refresh_summaries(reworded), name="summaries")
 
 
 async def _refresh_summaries(rolls) -> None:

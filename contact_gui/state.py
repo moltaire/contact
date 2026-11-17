@@ -86,6 +86,8 @@ class State:
             Path(saved_root) if saved_root and Path(saved_root).is_dir() else None
         )
         self.library: list[Roll] | None = None
+        # dark or light, as last chosen (remembered across runs)
+        self.dark: bool = self._load_settings().get("theme", "dark") != "light"
         # the roll page's summary, folded away or not (remembered across runs)
         self.summary_open: bool = self._load_settings().get("summary_open", True) is not False
 
@@ -181,6 +183,10 @@ class State:
         the event loop."""
         if self.library_root is not None:
             self.library = scan_library(self.library_root, self.library)
+
+    def set_dark(self, on: bool) -> None:
+        self.dark = on
+        self._save_settings(theme="dark" if on else "light")
 
     def set_summary_open(self, on: bool) -> None:
         self.summary_open = on

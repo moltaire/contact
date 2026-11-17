@@ -89,7 +89,7 @@ class RollForm:
                 .props("outlined dense autogrow").classes("w-full col-span-2")
             with ui.row().classes("col-span-2 gap-2"):
                 ui.button("Save", on_click=self._save)
-                ui.button("Cancel", on_click=self.on_cancel).props("outline color=grey-5")
+                ui.button("Cancel", on_click=self.on_cancel).props("outline color=quiet-strong")
 
     def _save(self) -> None:
         # One spelling per place: "athens,greece" becomes "Athens, Greece" and is not

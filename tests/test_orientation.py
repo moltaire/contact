@@ -1,4 +1,5 @@
-"""Rotation changes only the EXIF orientation flag, never the image data."""
+"""Rotation changes only the orientation flag of JPEGs and TIFFs, never their image
+data; PNGs are turned exactly in their pixels."""
 
 import pytest
 from PIL import Image, ImageOps
@@ -63,13 +64,58 @@ def test_flags():
         rotated_flag(2, True)
 
 
-def test_only_jpegs(tmp_path):
-    path = tmp_path / "frame.tif"
-    Image.new("RGB", (4, 4)).save(path)
+def test_other_files_are_refused(tmp_path):
+    other = tmp_path / "frame.gif"
+    Image.new("RGB", (4, 4)).save(other)
     with pytest.raises(OrientationError):
-        rotate(path)
+        rotate(other)
     fake = tmp_path / "fake.jpg"
     fake.write_bytes(b"not a jpeg")
     with pytest.raises(OrientationError):
         rotate(fake)
     assert fake.read_bytes() == b"not a jpeg"
+
+
+def _pattern(size=(30, 20)) -> Image.Image:
+    """An image whose rotation is visible in its pixels."""
+    image = Image.new("RGB", size, (10, 10, 10))
+    image.putpixel((0, 0), (250, 0, 0))
+    return image
+
+
+@pytest.mark.parametrize("with_flag", [False, True])
+def test_tiff_turns_by_its_flag_and_keeps_pixels(tmp_path, with_flag):
+    path = tmp_path / "frame.tif"
+    _pattern().save(path, tiffinfo={0x0112: 1} if with_flag else {})
+    before = path.read_bytes()
+
+    assert rotate(path, clockwise=True) == 6
+    after = path.read_bytes()
+    assert read_orientation(path) == 6
+    if with_flag:  # two bytes change, in place
+        assert len(after) == len(before)
+        assert sum(a != b for a, b in zip(before, after)) == 1
+    else:  # the header points to an appended copy of IFD0; the rest is untouched
+        assert after[:4] == before[:4] and after[8:len(before)] == before[8:]
+    # shown turned (Pillow applies a TIFF's flag when it opens it; exif_transpose
+    # covers older versions that leave it to the caller)
+    assert ImageOps.exif_transpose(Image.open(path)).size == (20, 30)
+
+    rotate(path, clockwise=False)
+    assert read_orientation(path) == 1
+    assert ImageOps.exif_transpose(Image.open(path)).size == (30, 20)
+    assert path.read_bytes()[8:len(before)] == before[8:]
+
+
+def test_png_turns_its_pixels_exactly(tmp_path):
+    path = tmp_path / "frame.png"
+    original = _pattern()
+    original.save(path)
+    assert rotate(path, clockwise=True) == 1
+    with Image.open(path) as turned:
+        assert turned.size == (20, 30)
+        expected = original.transpose(Image.Transpose.ROTATE_270)
+        assert turned.convert("RGB").tobytes() == expected.tobytes()
+    rotate(path, clockwise=False)
+    with Image.open(path) as back:
+        assert back.convert("RGB").tobytes() == original.tobytes()
