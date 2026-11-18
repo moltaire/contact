@@ -369,11 +369,19 @@ def run_app() -> None:
                              "(the saved library stays as it is).")
     parser.add_argument("--port", type=int, default=None, help="Port to serve on (default: a free one).")
     parser.add_argument("--no-browser", action="store_true", help="Do not open the browser.")
+    parser.add_argument("--install-app", nargs="?", const="~/Applications", metavar="DIR",
+                        help="macOS: put a contact.app into DIR (default ~/Applications) "
+                             "that starts contact without a terminal, then exit.")
     parser.add_argument("--light", action="store_true",
                         help="Use the light theme for this run (the header's sun/moon "
                              "switches and remembers it).")
     args = parser.parse_args()
 
+    if args.install_app:
+        from .macapp import install_app
+        app = install_app(Path(args.install_app))
+        print(f"Installed {app}. Open it from Spotlight, Launchpad or the Dock.")
+        return
     if args.light:
         state.dark = False  # this run only: not saved
     if args.library:

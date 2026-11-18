@@ -82,6 +82,10 @@ Decisions: all processed rolls live in ONE parent folder (set it in Settings). T
 - [x] Light theme brought to parity: every colour named once in theme.py with a dark and a light value; the app no longer uses Quasar's grey colour props (they sit in a CSS layer nothing overrides) but `color=quiet` / `quiet-strong`
 - [~] Static library page linking all contact sheets: dropped for now (user unsure it is needed)
 
+### 13. Mac app (built 2026-11-18)
+- [x] `contact-ui --install-app` writes a launcher contact.app to ~/Applications (contact_gui/macapp.py): starts the installed contact-ui on port 8765 through a login shell (for Homebrew's PATH), or opens the browser if it is already running; log in ~/Library/Logs/contact.log
+- [ ] Later, if wanted: a native window (NiceGUI native mode + pywebview) and a standalone bundle (nicegui-pack); would need in-app back/forward and a guard against closing during tagging
+
 ### 11. One frame view (built 2026-11-16)
 - [x] Viewer and Edit page merged into one overlay (`contact_gui/frames.py`): View by default, E toggles Edit (remembered), filmstrip only in Edit
 - [x] Opens over the library (roll or search results, editing across rolls) and over a roll's overview; Esc and browser back return there
